@@ -31,7 +31,10 @@ service cloud.firestore {
     // 1. Users Collection
     match /users/{userId} {
       // Users can read own profile. Associated coaches can read as well.
-      allow read: if isOwner(userId) || (isSignedIn() && getRole(request.auth.uid) == "coach" && resource.data.coachId == request.auth.uid);
+      // Coach profiles are public/readable to enable invite code verification during register or linkage.
+      allow read: if isOwner(userId) || 
+                   (isSignedIn() && getRole(request.auth.uid) == "coach" && resource.data.coachId == request.auth.uid) ||
+                   resource.data.role == "coach";
       
       // Users can create own profiles
       allow create: if isOwner(userId) && request.resource.data.keys().hasAll(['id', 'email', 'role', 'name']);
