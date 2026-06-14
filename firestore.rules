@@ -16,16 +16,8 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function getRole(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data.get('role', 'athlete');
-    }
-
-    function getCoachId(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data.get('coachId', null);
-    }
-
     function isMyCoach(athleteId) {
-      return isSignedIn() && getRole(request.auth.uid) == "coach" && getCoachId(athleteId) == request.auth.uid;
+      return isSignedIn() && exists(/databases/$(database)/documents/coachAthleteRelations/$(request.auth.uid)_$(athleteId));
     }
 
     // 1. Users Collection
@@ -37,9 +29,7 @@ service cloud.firestore {
       allow read: if resource.data.get('role', 'athlete') == "coach";
 
       // Coaches can read their linked athletes' profiles
-      allow read: if isSignedIn() && 
-                   getRole(request.auth.uid) == "coach" && 
-                   resource.data.get('coachId', null) == request.auth.uid;
+      allow read: if isSignedIn() && exists(/databases/$(database)/documents/coachAthleteRelations/$(request.auth.uid)_$(userId));
       
       // Users can create own profiles
       allow create: if isOwner(userId) && request.resource.data.keys().hasAll(['id', 'email', 'role', 'name']);
@@ -86,20 +76,20 @@ service cloud.firestore {
     // 7. CoachNotes Collection
     match /coachNotes/{noteId} {
       allow read: if isSignedIn() && (resource.data.athleteId == request.auth.uid || resource.data.coachId == request.auth.uid);
-      allow create: if isSignedIn() && getRole(request.auth.uid) == "coach" && request.auth.uid == request.resource.data.coachId;
-      allow update: if isSignedIn() && getRole(request.auth.uid) == "coach" && request.auth.uid == request.resource.data.coachId && request.auth.uid == resource.data.coachId;
-      allow delete: if isSignedIn() && getRole(request.auth.uid) == "coach" && request.auth.uid == resource.data.coachId;
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.coachId && exists(/databases/$(database)/documents/coachAthleteRelations/$(request.auth.uid)_$(request.resource.data.athleteId));
+      allow update: if isSignedIn() && request.auth.uid == request.resource.data.coachId && request.auth.uid == resource.data.coachId;
+      allow delete: if isSignedIn() && request.auth.uid == resource.data.coachId;
     }
 
     // 8. CoachGoals Collection
     match /coachGoals/{goalId} {
       allow read: if isSignedIn() && (resource.data.athleteId == request.auth.uid || resource.data.coachId == request.auth.uid);
-      allow create: if isSignedIn() && getRole(request.auth.uid) == "coach" && request.auth.uid == request.resource.data.coachId;
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.coachId && exists(/databases/$(database)/documents/coachAthleteRelations/$(request.auth.uid)_$(request.resource.data.athleteId));
       allow update: if isSignedIn() && (
-        (getRole(request.auth.uid) == "coach" && request.auth.uid == request.resource.data.coachId && request.auth.uid == resource.data.coachId) ||
+        (request.auth.uid == request.resource.data.coachId && request.auth.uid == resource.data.coachId) ||
         (request.auth.uid == resource.data.athleteId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']))
       );
-      allow delete: if isSignedIn() && getRole(request.auth.uid) == "coach" && request.auth.uid == resource.data.coachId;
+      allow delete: if isSignedIn() && request.auth.uid == resource.data.coachId;
     }
 
     // 9. CoachAthleteRelations Collection
