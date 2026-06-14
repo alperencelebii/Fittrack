@@ -147,7 +147,7 @@ export const databaseService = {
     }
   },
 
-  listenWeightEntries(userId: string, callback: (entries: WeightEntry[]) => void) {
+  listenWeightEntries(userId: string, callback: (entries: WeightEntry[]) => void, errorCallback?: (err: any) => void) {
     const q = query(collection(db, 'weightEntries'), where('userId', '==', userId));
     return onSnapshot(q, (snap) => {
       const list: WeightEntry[] = [];
@@ -156,6 +156,13 @@ export const databaseService = {
       });
       list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       callback(list);
+    }, (err) => {
+      console.error("listenWeightEntries error", err);
+      if (errorCallback) {
+        errorCallback(err);
+      } else {
+        handleFirestoreError(err, OperationType.LIST, 'weightEntries');
+      }
     });
   },
 
@@ -181,7 +188,7 @@ export const databaseService = {
     }
   },
 
-  listenBodyMeasurements(userId: string, callback: (measurements: BodyMeasurement[]) => void) {
+  listenBodyMeasurements(userId: string, callback: (measurements: BodyMeasurement[]) => void, errorCallback?: (err: any) => void) {
     const q = query(collection(db, 'bodyMeasurements'), where('userId', '==', userId));
     return onSnapshot(q, (snap) => {
       const list: BodyMeasurement[] = [];
@@ -190,6 +197,13 @@ export const databaseService = {
       });
       list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       callback(list);
+    }, (err) => {
+      console.error("listenBodyMeasurements error", err);
+      if (errorCallback) {
+        errorCallback(err);
+      } else {
+        handleFirestoreError(err, OperationType.LIST, 'bodyMeasurements');
+      }
     });
   },
 
@@ -215,7 +229,7 @@ export const databaseService = {
     }
   },
 
-  listenMealEntries(userId: string, callback: (meals: MealEntry[]) => void) {
+  listenMealEntries(userId: string, callback: (meals: MealEntry[]) => void, errorCallback?: (err: any) => void) {
     const q = query(collection(db, 'mealEntries'), where('userId', '==', userId));
     return onSnapshot(q, (snap) => {
       const list: MealEntry[] = [];
@@ -224,6 +238,13 @@ export const databaseService = {
       });
       list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       callback(list);
+    }, (err) => {
+      console.error("listenMealEntries error", err);
+      if (errorCallback) {
+        errorCallback(err);
+      } else {
+        handleFirestoreError(err, OperationType.LIST, 'mealEntries');
+      }
     });
   },
 
@@ -258,7 +279,7 @@ export const databaseService = {
     }
   },
 
-  listenWaterEntries(userId: string, callback: (water: WaterEntry[]) => void) {
+  listenWaterEntries(userId: string, callback: (water: WaterEntry[]) => void, errorCallback?: (err: any) => void) {
     const q = query(collection(db, 'waterEntries'), where('userId', '==', userId));
     return onSnapshot(q, (snap) => {
       const list: WaterEntry[] = [];
@@ -267,6 +288,13 @@ export const databaseService = {
       });
       list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       callback(list);
+    }, (err) => {
+      console.error("listenWaterEntries error", err);
+      if (errorCallback) {
+        errorCallback(err);
+      } else {
+        handleFirestoreError(err, OperationType.LIST, 'waterEntries');
+      }
     });
   },
 
@@ -313,7 +341,7 @@ export const databaseService = {
     }
   },
 
-  listenConnectedAthletes(coachId: string, callback: (athletes: any[]) => void) {
+  listenConnectedAthletes(coachId: string, callback: (athletes: any[]) => void, errorCallback?: (err: any) => void) {
     const q = query(collection(db, 'users'), where('coachId', '==', coachId));
     return onSnapshot(q, (snap) => {
       const list: any[] = [];
@@ -321,6 +349,13 @@ export const databaseService = {
         list.push({ id: d.id, ...d.data() });
       });
       callback(list);
+    }, (err) => {
+      console.error("listenConnectedAthletes error", err);
+      if (errorCallback) {
+        errorCallback(err);
+      } else {
+        handleFirestoreError(err, OperationType.LIST, 'users');
+      }
     });
   },
 
@@ -343,7 +378,7 @@ export const databaseService = {
     }
   },
 
-  listenCoachNotes(athleteId: string, callback: (notes: any[]) => void) {
+  listenCoachNotes(athleteId: string, callback: (notes: any[]) => void, errorCallback?: (err: any) => void) {
     const q = query(collection(db, 'coachNotes'), where('athleteId', '==', athleteId));
     return onSnapshot(q, (snap) => {
       const list: any[] = [];
@@ -352,6 +387,13 @@ export const databaseService = {
       });
       list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       callback(list);
+    }, (err) => {
+      console.error("listenCoachNotes error", err);
+      if (errorCallback) {
+        errorCallback(err);
+      } else {
+        handleFirestoreError(err, OperationType.LIST, 'coachNotes');
+      }
     });
   },
 
@@ -383,7 +425,7 @@ export const databaseService = {
     }
   },
 
-  listenCoachGoals(athleteId: string, callback: (goals: any[]) => void) {
+  listenCoachGoals(athleteId: string, callback: (goals: any[]) => void, errorCallback?: (err: any) => void) {
     const q = query(collection(db, 'coachGoals'), where('athleteId', '==', athleteId));
     return onSnapshot(q, (snap) => {
       const list: any[] = [];
@@ -392,6 +434,13 @@ export const databaseService = {
       });
       list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       callback(list);
+    }, (err) => {
+      console.error("listenCoachGoals error", err);
+      if (errorCallback) {
+        errorCallback(err);
+      } else {
+        handleFirestoreError(err, OperationType.LIST, 'coachGoals');
+      }
     });
   },
 };

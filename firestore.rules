@@ -17,11 +17,11 @@ service cloud.firestore {
     }
 
     function getRole(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data.role;
+      return get(/databases/$(database)/documents/users/$(userId)).data.get('role', 'athlete');
     }
 
     function getCoachId(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data.coachId;
+      return get(/databases/$(database)/documents/users/$(userId)).data.get('coachId', null);
     }
 
     function isMyCoach(athleteId) {
@@ -30,11 +30,16 @@ service cloud.firestore {
 
     // 1. Users Collection
     match /users/{userId} {
-      // Users can read own profile. Associated coaches can read as well.
-      // Coach profiles are public/readable to enable invite code verification during register or linkage.
-      allow read: if isOwner(userId) || 
-                   (isSignedIn() && getRole(request.auth.uid) == "coach" && resource.data.coachId == request.auth.uid) ||
-                   resource.data.role == "coach";
+      // Own profile read
+      allow read: if isOwner(userId);
+
+      // Coach profiles are public/readable to enable invitation checks and verified connections
+      allow read: if resource.data.get('role', 'athlete') == "coach";
+
+      // Coaches can read their linked athletes' profiles
+      allow read: if isSignedIn() && 
+                   getRole(request.auth.uid) == "coach" && 
+                   resource.data.get('coachId', null) == request.auth.uid;
       
       // Users can create own profiles
       allow create: if isOwner(userId) && request.resource.data.keys().hasAll(['id', 'email', 'role', 'name']);
@@ -81,20 +86,31 @@ service cloud.firestore {
     // 7. CoachNotes Collection
     match /coachNotes/{noteId} {
       allow read: if isSignedIn() && (resource.data.athleteId == request.auth.uid || resource.data.coachId == request.auth.uid);
-      allow create, update, delete: if isSignedIn() && getRole(request.auth.uid) == "coach" && request.auth.uid == (request.resource != null ? request.resource.data.coachId : resource.data.coachId);
+      allow create: if isSignedIn() && getRole(request.auth.uid) == "coach" && request.auth.uid == request.resource.data.coachId;
+      allow update: if isSignedIn() && getRole(request.auth.uid) == "coach" && request.auth.uid == request.resource.data.coachId && request.auth.uid == resource.data.coachId;
+      allow delete: if isSignedIn() && getRole(request.auth.uid) == "coach" && request.auth.uid == resource.data.coachId;
     }
 
     // 8. CoachGoals Collection
     match /coachGoals/{goalId} {
       allow read: if isSignedIn() && (resource.data.athleteId == request.auth.uid || resource.data.coachId == request.auth.uid);
-      allow create, update, delete: if isSignedIn() && getRole(request.auth.uid) == "coach" && request.auth.uid == (request.resource != null ? request.resource.data.coachId : resource.data.coachId);
+      allow create: if isSignedIn() && getRole(request.auth.uid) == "coach" && request.auth.uid == request.resource.data.coachId;
+      allow update: if isSignedIn() && (
+        (getRole(request.auth.uid) == "coach" && request.auth.uid == request.resource.data.coachId && request.auth.uid == resource.data.coachId) ||
+        (request.auth.uid == resource.data.athleteId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']))
+      );
+      allow delete: if isSignedIn() && getRole(request.auth.uid) == "coach" && request.auth.uid == resource.data.coachId;
     }
 
     // 9. CoachAthleteRelations Collection
     match /coachAthleteRelations/{relationId} {
       allow read: if isSignedIn() && (resource.data.athleteId == request.auth.uid || resource.data.coachId == request.auth.uid);
-      // Both coach and athlete can establish or dissolve linkages
-      allow create, delete: if isSignedIn() && (request.auth.uid == (request.resource != null ? request.resource.data.athleteId : resource.data.athleteId) || request.auth.uid == (request.resource != null ? request.resource.data.coachId : resource.data.coachId));
+      
+      // Create relation document
+      allow create: if isSignedIn() && (request.auth.uid == request.resource.data.athleteId || request.auth.uid == request.resource.data.coachId);
+      
+      // Delete relation document
+      allow delete: if isSignedIn() && (request.auth.uid == resource.data.athleteId || request.auth.uid == resource.data.coachId);
     }
   }
 }

@@ -91,7 +91,9 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
         const doc = await databaseService.getUserProfile(athleteId);
         setAthleteDoc(doc);
       } catch (err) {
-        console.error(err);
+        console.error("Athlete profile fetch failed:", err);
+      } finally {
+        setLoading(false);
       }
     };
     loadProfile();
@@ -99,37 +101,50 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
     // 1. Listen workouts
     const unsubWorkouts = databaseService.listenWorkouts(athleteId, (list) => {
       setWorkouts(list);
+    }, (err) => {
+      console.warn("Could not load athlete workouts in details:", err);
     });
 
     // 2. Listen weights
     const unsubWeight = databaseService.listenWeightEntries(athleteId, (list) => {
       setWeightEntries(list);
+    }, (err) => {
+      console.warn("Could not load athlete weights in details:", err);
     });
 
     // 3. Listen dimensions
     const unsubMeasurements = databaseService.listenBodyMeasurements(athleteId, (list) => {
       setBodyMeasurements(list);
+    }, (err) => {
+      console.warn("Could not load athlete body measurements in details:", err);
     });
 
     // 4. Listen meals
     const unsubMeals = databaseService.listenMealEntries(athleteId, (list) => {
       setMeals(list);
+    }, (err) => {
+      console.warn("Could not load athlete nutrition logs in details:", err);
     });
 
     // 5. Listen water
     const unsubWater = databaseService.listenWaterEntries(athleteId, (list) => {
       setWaterEntries(list);
+    }, (err) => {
+      console.warn("Could not load athlete water logs in details:", err);
     });
 
     // 6. Listen Coach notes
     const unsubNotes = databaseService.listenCoachNotes(athleteId, (list) => {
       setNotes(list);
+    }, (err) => {
+      console.warn("Could not load coach notes in details:", err);
     });
 
     // 7. Listen Coach goals
     const unsubGoals = databaseService.listenCoachGoals(athleteId, (list) => {
       setGoals(list);
-      setLoading(false);
+    }, (err) => {
+      console.warn("Could not load coach goals in details:", err);
     });
 
     return () => {
