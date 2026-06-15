@@ -24,7 +24,129 @@ import {
   BodyMeasurement,
   MealEntry,
   WaterEntry,
+  WorkoutSet,
+  Exercise,
 } from '../types';
+
+// --- HELPERS FOR DATA VALIDATION & COMPATIBILITY ---
+export function normalizeExerciseSets(exercise: any): WorkoutSet[] {
+  if (!exercise) return [];
+  if (Array.isArray(exercise.sets)) {
+    return exercise.sets.map((set: any, index: number) => ({
+      id: set.id || Math.random().toString(36).substring(2, 9),
+      setNumber: Number(set.setNumber || index + 1),
+      reps: Number(set.reps || 0),
+      weight: Number(set.weight || 0),
+      restSeconds: Number(set.restSeconds || 0),
+      notes: set.notes || '',
+    }));
+  }
+
+  // Legacy fallback (convert sets number to sets array)
+  const setsCount = Number(exercise.sets || 0);
+  const reps = Number(exercise.reps || 0);
+  const weight = Number(exercise.weight || 0);
+  const restSeconds = Number(exercise.restSeconds || 60);
+
+  const normalizedSets: WorkoutSet[] = [];
+  for (let i = 1; i <= setsCount; i++) {
+    normalizedSets.push({
+      id: Math.random().toString(36).substring(2, 9),
+      setNumber: i,
+      reps,
+      weight,
+      restSeconds,
+      notes: '',
+    });
+  }
+  return normalizedSets;
+}
+
+export function normalizeExercise(exercise: any): Exercise {
+  if (!exercise) {
+    return {
+      id: Math.random().toString(36).substring(2, 9),
+      name: 'Egzersiz',
+      sets: [],
+      notes: '',
+    };
+  }
+  const sets = normalizeExerciseSets(exercise);
+  return {
+    id: exercise.id || Math.random().toString(36).substring(2, 9),
+    name: exercise.name || 'Egzersiz',
+    sets,
+    notes: exercise.notes || '',
+  } as Exercise;
+}
+
+export function normalizeWorkout(workout: any, userId: string): Workout {
+  if (!workout) {
+    workout = {};
+  }
+  const id = workout.id || Math.random().toString(36).substring(2, 9);
+  const name = workout.name || 'Antrenman';
+  const date = workout.date || new Date().toISOString().split('T')[0];
+  const type = workout.type || 'Diğer';
+  const duration = Number(workout.duration || 0);
+  const caloriesBurned = Number(workout.caloriesBurned || 0);
+  const difficulty = workout.difficulty || 'Orta';
+  const notes = workout.notes || '';
+  const rawExercises = Array.isArray(workout.exercises) ? workout.exercises : [];
+  const exercises = rawExercises.map((ex: any) => normalizeExercise(ex));
+  const createdAt = workout.createdAt || new Date().toISOString();
+  const updatedAt = workout.updatedAt || new Date().toISOString();
+
+  // Return values with undefined properties replaced by fallback values to avoid Firestore errors
+  return {
+    id,
+    userId,
+    name,
+    date,
+    type,
+    duration,
+    caloriesBurned,
+    difficulty,
+    notes,
+    exercises,
+    createdAt,
+    updatedAt,
+  } as any;
+}
+
+export function calculateWorkoutVolume(workout: any): number {
+  if (!workout || !Array.isArray(workout.exercises)) return 0;
+  let total = 0;
+  for (const ex of workout.exercises) {
+    const sets = normalizeExerciseSets(ex);
+    for (const s of sets) {
+      total += (s.weight || 0) * (s.reps || 0);
+    }
+  }
+  return total;
+}
+
+export function calculateWorkoutTotalSets(workout: any): number {
+  if (!workout || !Array.isArray(workout.exercises)) return 0;
+  let total = 0;
+  for (const ex of workout.exercises) {
+    const sets = normalizeExerciseSets(ex);
+    total += sets.length;
+  }
+  return total;
+}
+
+export function calculateWorkoutTotalReps(workout: any): number {
+  if (!workout || !Array.isArray(workout.exercises)) return 0;
+  let total = 0;
+  for (const ex of workout.exercises) {
+    const sets = normalizeExerciseSets(ex);
+    for (const s of sets) {
+      total += s.reps || 0;
+    }
+  }
+  return total;
+}
 
 export enum OperationType {
   CREATE = 'create',
@@ -88,14 +210,12 @@ export const databaseService = {
 
   // --- WORKOUTS ---
   async saveWorkout(workout: Workout, userId: string): Promise<void> {
-    const path = `workouts/${workout.id}`;
+    const cleanWorkout = normalizeWorkout(workout, userId);
+    const path = `workouts/${cleanWorkout.id}`;
     try {
-      await setDoc(doc(db, 'workouts', workout.id), {
-        ...workout,
-        userId,
-        updatedAt: new Date().toISOString(),
-      });
+      await setDoc(doc(db, 'workouts', cleanWorkout.id), cleanWorkout, { merge: true });
     } catch (error) {
+      console.error("Firestore saveWorkout fail details:", error, "Payload was:", JSON.stringify(cleanWorkout));
       handleFirestoreError(error, OperationType.WRITE, path);
     }
   },
@@ -105,6 +225,7 @@ export const databaseService = {
     try {
       await deleteDoc(doc(db, 'workouts', workoutId));
     } catch (error) {
+      console.error("Firestore deleteWorkout fail details:", error, "Id was:", workoutId);
       handleFirestoreError(error, OperationType.DELETE, path);
     }
   },
@@ -114,7 +235,8 @@ export const databaseService = {
     return onSnapshot(q, (snap) => {
       const list: Workout[] = [];
       snap.forEach((d) => {
-        list.push({ id: d.id, ...d.data() } as Workout);
+        const data = d.data();
+        list.push(normalizeWorkout({ id: d.id, ...data }, userId));
       });
       // Sort client side by date descending
       list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());

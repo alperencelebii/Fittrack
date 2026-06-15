@@ -320,6 +320,22 @@ function MainApp() {
     }
   };
 
+  // Helper to extract a clean string from JSON-stringified firestore errors
+  const getFriendlyErrorMessage = (err: any): string => {
+    if (err instanceof Error) {
+      try {
+        const parsed = JSON.parse(err.message);
+        if (parsed && typeof parsed === 'object' && parsed.error) {
+          return parsed.error;
+        }
+      } catch {
+        return err.message;
+      }
+      return err.message;
+    }
+    return String(err);
+  };
+
   // Child changes direct synchronizations
   const handleSaveWorkouts = async (updated: Workout[]) => {
     if (!currentUser) return;
@@ -339,7 +355,7 @@ function MainApp() {
       }
     } catch (err) {
       console.error(err);
-      showToast('Antrenman kaydedilemedi.');
+      showToast(`Antrenman kaydedilemedi: ${getFriendlyErrorMessage(err)}`);
     }
   };
 
@@ -361,7 +377,7 @@ function MainApp() {
       }
     } catch (err) {
       console.error(err);
-      showToast('Ağırlık kaydedilemedi.');
+      showToast(`Ağırlık kaydedilemedi: ${getFriendlyErrorMessage(err)}`);
     }
   };
 
@@ -383,6 +399,7 @@ function MainApp() {
       }
     } catch (err) {
       console.error(err);
+      showToast(`Ölçüm kaydedilemedi: ${getFriendlyErrorMessage(err)}`);
     }
   };
 
@@ -404,6 +421,7 @@ function MainApp() {
       }
     } catch (err) {
       console.error(err);
+      showToast(`Öğün kaydedilemedi: ${getFriendlyErrorMessage(err)}`);
     }
   };
 

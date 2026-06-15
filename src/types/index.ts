@@ -30,13 +30,22 @@ export type WorkoutType =
 
 export type WorkoutDifficulty = 'Kolay' | 'Orta' | 'Zor';
 
-export interface Exercise {
+export interface WorkoutSet {
   id: string;
-  name: string;
-  sets: number;
+  setNumber: number;
   reps: number;
   weight: number; // kg
   restSeconds: number;
+  notes?: string;
+}
+
+export interface Exercise {
+  id: string;
+  name: string;
+  sets: WorkoutSet[] | number;
+  reps?: number;
+  weight?: number; // kg
+  restSeconds?: number;
   notes?: string;
 }
 
