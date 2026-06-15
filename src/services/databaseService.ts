@@ -464,21 +464,98 @@ export const databaseService = {
   },
 
   listenConnectedAthletes(coachId: string, callback: (athletes: any[]) => void, errorCallback?: (err: any) => void) {
-    const q = query(collection(db, 'users'), where('coachId', '==', coachId));
-    return onSnapshot(q, (snap) => {
-      const list: any[] = [];
-      snap.forEach((d) => {
-        list.push({ id: d.id, ...d.data() });
+    let relations: any[] = [];
+    let standardAthletes: any[] = [];
+    let relationAthletesMap: { [id: string]: any } = {};
+    let unsubUsers: (() => void) | null = null;
+    let isUnsubscribed = false;
+
+    // Helper to merge, deduplicate and invoke callback
+    const emitMergedList = () => {
+      if (isUnsubscribed) return;
+      const combinedMap = new Map<string, any>();
+      
+      // 1. Add standard athletes (from users where coachId == coachId)
+      standardAthletes.forEach(a => {
+        combinedMap.set(a.id, { ...a });
       });
-      callback(list);
+
+      // 2. Add relation-based athletes (where relationship exists)
+      relations.forEach(r => {
+        const athleteId = r.athleteId;
+        if (athleteId) {
+          if (combinedMap.has(athleteId)) {
+            // Already there
+          } else if (relationAthletesMap[athleteId]) {
+            combinedMap.set(athleteId, { ...relationAthletesMap[athleteId] });
+          } else {
+            // Document loading fallback placeholder until fetched
+            combinedMap.set(athleteId, { 
+              id: athleteId, 
+              name: 'Yükleniyor...', 
+              email: '...' 
+            });
+          }
+        }
+      });
+
+      const finalList = Array.from(combinedMap.values());
+      callback(finalList);
+    };
+
+    // Sub 1: Listen to standard coach relations on users
+    const qUsers = query(collection(db, 'users'), where('coachId', '==', coachId));
+    unsubUsers = onSnapshot(qUsers, (snap) => {
+      standardAthletes = [];
+      snap.forEach((d) => {
+        standardAthletes.push({ id: d.id, ...d.data() });
+      });
+      emitMergedList();
     }, (err) => {
-      console.error("listenConnectedAthletes error", err);
-      if (errorCallback) {
-        errorCallback(err);
-      } else {
-        handleFirestoreError(err, OperationType.LIST, 'users');
-      }
+      console.warn("listenConnectedAthletes - users query error", err);
+      if (errorCallback) errorCallback(err);
     });
+
+    // Sub 2: Listen to coachAthleteRelations
+    const qRelations = query(collection(db, 'coachAthleteRelations'), where('coachId', '==', coachId));
+    const unsubRelations = onSnapshot(qRelations, async (snap) => {
+      relations = [];
+      const newAthleteIdsToFetch: string[] = [];
+      
+      snap.forEach((d) => {
+        const data = d.data();
+        relations.push({ id: d.id, ...data });
+        const athleteId = data.athleteId;
+        if (athleteId && !relationAthletesMap[athleteId] && !standardAthletes.some(sa => sa.id === athleteId)) {
+          newAthleteIdsToFetch.push(athleteId);
+        }
+      });
+
+      // Fetch newly found athlete details asynchronously
+      if (newAthleteIdsToFetch.length > 0) {
+        try {
+          await Promise.all(newAthleteIdsToFetch.map(async (aid) => {
+            const docSnap = await getDoc(doc(db, 'users', aid));
+            if (docSnap.exists()) {
+              relationAthletesMap[aid] = { id: docSnap.id, ...docSnap.data() };
+            }
+          }));
+          emitMergedList();
+        } catch (fetchErr) {
+          console.warn("Error fetching relation athlete profiles:", fetchErr);
+        }
+      } else {
+        emitMergedList();
+      }
+    }, (err) => {
+      console.warn("listenConnectedAthletes - relations query error", err);
+    });
+
+    return () => {
+      isUnsubscribed = true;
+      if (unsubUsers) unsubUsers();
+      if (unsubRelations) unsubRelations();
+    };
   },
 
   // --- COACH NOTES ---

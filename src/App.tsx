@@ -55,6 +55,7 @@ function MainApp() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [activeCoachTab, setActiveCoachTab] = useState<CoachTabType>('coach-dashboard');
+  const [prevCoachTab, setPrevCoachTab] = useState<CoachTabType>('coach-dashboard');
   const [selectedAthleteId, setSelectedAthleteId] = useState<string>('');
 
   // Application Data States (for Athletes)
@@ -551,6 +552,7 @@ function MainApp() {
               <CoachDashboard
                 onSelectAthlete={(athleteId) => {
                   setSelectedAthleteId(athleteId);
+                  setPrevCoachTab('coach-dashboard');
                   setActiveCoachTab('coach-athlete-detail');
                 }}
                 onNavigateToAthletes={() => setActiveCoachTab('coach-athletes')}
@@ -562,6 +564,7 @@ function MainApp() {
               <MyAthletesList
                 onSelectAthlete={(athleteId) => {
                   setSelectedAthleteId(athleteId);
+                  setPrevCoachTab('coach-athletes');
                   setActiveCoachTab('coach-athlete-detail');
                 }}
                 onShowToast={showToast}
@@ -571,7 +574,7 @@ function MainApp() {
             {activeCoachTab === 'coach-athlete-detail' && (
               <AthleteDetailsView
                 athleteId={selectedAthleteId}
-                onBack={() => setActiveCoachTab('coach-dashboard')}
+                onBack={() => setActiveCoachTab(prevCoachTab)}
                 onShowToast={showToast}
               />
             )}

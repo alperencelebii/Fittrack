@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { databaseService } from '../../services/databaseService';
+import { databaseService, normalizeExerciseSets } from '../../services/databaseService';
 import { 
   Workout, 
   WeightEntry, 
@@ -288,6 +288,24 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
       console.error(err);
     }
   };
+
+  if (!athleteId) {
+    return (
+      <div className="h-96 flex flex-col justify-center items-center gap-4 text-center max-w-sm mx-auto p-6 bg-slate-900 border border-slate-805 rounded-2xl">
+        <AlertCircle className="w-12 h-12 text-rose-500 animate-pulse" />
+        <div className="space-y-1">
+          <h3 className="text-sm font-bold text-white">Sporcu Kimliği Eksik</h3>
+          <p className="text-xs text-slate-400">Görüntülemek istediğiniz sporcu bilgisine ulaşılamadı. Lütfen sporcu listesinden yeniden seçim yapın.</p>
+        </div>
+        <button
+          onClick={onBack}
+          className="px-4 py-2 bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-200 text-xs font-bold rounded-xl transition cursor-pointer"
+        >
+          Sporculara Geri Dön
+        </button>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -711,14 +729,19 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
                     <div className="space-y-1.5 pl-2 border-l-2 border-slate-800">
                       <span className="text-[9.5px] font-extrabold text-slate-400 uppercase tracking-widest block">Egzersizler:</span>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                        {w.exercises.map((ex, idx) => (
-                          <div key={ex.id || idx} className="p-1.5 bg-slate-950 rounded border border-slate-850/50">
-                            <span className="font-bold text-slate-200 block">{ex.name}</span>
-                            <span className="text-[10px] text-emerald-400 font-bold">
-                              {ex.sets} set x {ex.reps} reps / {ex.weight} kg {ex.notes && <span className="text-slate-400 font-normal">({ex.notes})</span>}
-                            </span>
-                          </div>
-                        ))}
+                        {w.exercises.map((ex, idx) => {
+                          const normalizedSets = normalizeExerciseSets(ex);
+                          const totalSetsCount = normalizedSets.length;
+                          const firstSet = normalizedSets[0] || { reps: 0, weight: 0 };
+                          return (
+                            <div key={ex.id || idx} className="p-1.5 bg-slate-950 rounded border border-slate-850/50">
+                              <span className="font-bold text-slate-200 block">{ex.name}</span>
+                              <span className="text-[10px] text-emerald-400 font-bold">
+                                {totalSetsCount} set {firstSet.reps > 0 ? `x ${firstSet.reps} tekrar` : ''} {firstSet.weight > 0 ? `/ ${firstSet.weight} kg` : ''} {ex.notes && <span className="text-slate-400 font-normal">({ex.notes})</span>}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
