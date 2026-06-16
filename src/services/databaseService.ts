@@ -163,6 +163,25 @@ export function normalizeWorkout(workout: any, userId: string): Workout {
   } as any;
 }
 
+export function normalizeMeal(meal: any): MealEntry {
+  if (!meal) {
+    meal = {};
+  }
+  return {
+    id: meal.id || Math.random().toString(36).substring(2, 9),
+    date: meal.date || new Date().toISOString().split('T')[0],
+    mealType: meal.mealType || 'Ara Öğün',
+    foodName: meal.foodName || 'Öğün',
+    calories: Number(meal.calories || 0),
+    protein: Number(meal.protein || 0),
+    carbs: Number(meal.carbs || 0),
+    fat: Number(meal.fat || 0),
+    notes: meal.notes || '',
+    createdAt: meal.createdAt || new Date().toISOString(),
+    updatedAt: meal.updatedAt || new Date().toISOString()
+  };
+}
+
 export function calculateWorkoutVolume(workout: any): number {
   if (!workout || !Array.isArray(workout.exercises)) return 0;
   let total = 0;
@@ -480,7 +499,7 @@ export const databaseService = {
     return onSnapshot(q, (snap) => {
       const list: MealEntry[] = [];
       snap.forEach((d) => {
-        list.push({ id: d.id, ...d.data() } as MealEntry);
+        list.push(normalizeMeal({ id: d.id, ...d.data() }));
       });
       list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       callback(list);
@@ -489,7 +508,7 @@ export const databaseService = {
       if (errorCallback) {
         errorCallback(err);
       } else {
-        handleFirestoreError(err, OperationType.LIST, 'mealEntries');
+        callback([]);
       }
     });
   },
