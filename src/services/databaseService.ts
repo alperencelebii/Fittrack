@@ -29,6 +29,55 @@ import {
 } from '../types';
 
 // --- HELPERS FOR DATA VALIDATION & COMPATIBILITY ---
+export function sanitizeForFirestore(value: any): any {
+  if (value === undefined) return '';
+  if (value === null) return '';
+  if (typeof value === 'number') {
+    if (Number.isNaN(value) || !Number.isFinite(value)) return 0;
+    return value;
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (Array.isArray(value)) {
+    return value.map(sanitizeForFirestore);
+  }
+  if (typeof value === 'object') {
+    if (value.constructor && value.constructor.name !== 'Object' && value.constructor.name !== 'Array') {
+      return value;
+    }
+    const cleaned: any = {};
+    for (const [key, val] of Object.entries(value)) {
+      if (val === undefined) {
+        if (['calories', 'protein', 'carbs', 'fat', 'weight', 'amountMl', 'duration', 'caloriesBurned', 'waist', 'chest', 'arm', 'shoulder', 'hip', 'leg', 'neck', 'bodyFat'].includes(key)) {
+          // Keep body measurements null if they are completely unentered, or 0 if we want default.
+          // Let's use null for body measurements to distinguish between empty and 0cm pazu or waist!
+          // Yes! If they are body measurements, let's return null if not defined, otherwise 0 for calories, carbs, etc.
+          if (['waist', 'chest', 'arm', 'shoulder', 'hip', 'leg', 'neck', 'bodyFat'].includes(key)) {
+            cleaned[key] = null;
+          } else {
+            cleaned[key] = 0;
+          }
+        } else if (['sets', 'exercises'].includes(key)) {
+          cleaned[key] = [];
+        } else {
+          cleaned[key] = '';
+        }
+      } else {
+        cleaned[key] = sanitizeForFirestore(val);
+      }
+    }
+    return cleaned;
+  }
+  return value;
+}
+
 export function normalizeExerciseSets(exercise: any): WorkoutSet[] {
   if (!exercise) return [];
   if (Array.isArray(exercise.sets)) {
@@ -191,9 +240,21 @@ export const databaseService = {
   // --- USER PROFILES ---
   async saveUserProfile(userId: string, data: any): Promise<void> {
     const path = `users/${userId}`;
+    const cleanUser = {
+      id: userId,
+      email: data.email || '',
+      role: data.role || 'athlete',
+      name: data.name || '',
+      nickname: data.nickname || '',
+      inviteCode: data.inviteCode || '',
+      coachId: data.coachId || null,
+      ...data,
+      updatedAt: new Date().toISOString(),
+    };
     try {
-      await setDoc(doc(db, 'users', userId), data, { merge: true });
+      await setDoc(doc(db, 'users', userId), sanitizeForFirestore(cleanUser), { merge: true });
     } catch (error) {
+      console.error("User profile save error:", error, "Payload was:", JSON.stringify(cleanUser));
       handleFirestoreError(error, OperationType.WRITE, path);
     }
   },
@@ -211,11 +272,35 @@ export const databaseService = {
   // --- WORKOUTS ---
   async saveWorkout(workout: Workout, userId: string): Promise<void> {
     const cleanWorkout = normalizeWorkout(workout, userId);
+    // Explicit notes check
+    if (cleanWorkout.notes === undefined || cleanWorkout.notes === null) {
+      cleanWorkout.notes = '';
+    }
+    // Also clean individual exercise notes
+    if (Array.isArray(cleanWorkout.exercises)) {
+      cleanWorkout.exercises = cleanWorkout.exercises.map(ex => {
+        const cleanEx = { ...ex };
+        if (cleanEx.notes === undefined || cleanEx.notes === null) {
+          cleanEx.notes = '';
+        }
+        if (Array.isArray(cleanEx.sets)) {
+          cleanEx.sets = cleanEx.sets.map(s => {
+            const cleanSet = { ...s };
+            if (cleanSet.notes === undefined || cleanSet.notes === null) {
+              cleanSet.notes = '';
+            }
+            return cleanSet;
+          });
+        }
+        return cleanEx;
+      });
+    }
     const path = `workouts/${cleanWorkout.id}`;
+    const sanitized = sanitizeForFirestore(cleanWorkout);
     try {
-      await setDoc(doc(db, 'workouts', cleanWorkout.id), cleanWorkout, { merge: true });
+      await setDoc(doc(db, 'workouts', cleanWorkout.id), sanitized, { merge: true });
     } catch (error) {
-      console.error("Firestore saveWorkout fail details:", error, "Payload was:", JSON.stringify(cleanWorkout));
+      console.error("Workout save error:", error, "Firestore sanitized payload:", JSON.stringify(sanitized));
       handleFirestoreError(error, OperationType.WRITE, path);
     }
   },
@@ -249,13 +334,22 @@ export const databaseService = {
 
   // --- WEIGHT ENTRIES ---
   async saveWeightEntry(entry: WeightEntry, userId: string): Promise<void> {
-    const path = `weightEntries/${entry.id}`;
+    const entryId = entry.id || Math.random().toString(36).substring(2, 9);
+    const path = `weightEntries/${entryId}`;
+    const cleanEntry = {
+      id: entryId,
+      userId,
+      date: entry.date || new Date().toISOString().split('T')[0],
+      weight: Number(entry.weight || 0),
+      notes: entry.notes || '',
+      createdAt: entry.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    const sanitized = sanitizeForFirestore(cleanEntry);
     try {
-      await setDoc(doc(db, 'weightEntries', entry.id), {
-        ...entry,
-        userId,
-      });
+      await setDoc(doc(db, 'weightEntries', entryId), sanitized, { merge: true });
     } catch (error) {
+      console.error("Weight save error:", error, "Firestore sanitized payload:", JSON.stringify(sanitized));
       handleFirestoreError(error, OperationType.WRITE, path);
     }
   },
@@ -290,13 +384,29 @@ export const databaseService = {
 
   // --- BODY MEASUREMENTS ---
   async saveBodyMeasurement(measurement: BodyMeasurement, userId: string): Promise<void> {
-    const path = `bodyMeasurements/${measurement.id}`;
+    const measurementId = measurement.id || Math.random().toString(36).substring(2, 9);
+    const path = `bodyMeasurements/${measurementId}`;
+    const cleanEntry = {
+      id: measurementId,
+      userId,
+      date: measurement.date || new Date().toISOString().split('T')[0],
+      waist: measurement.waist !== undefined && measurement.waist !== null ? Number(measurement.waist) : null,
+      chest: measurement.chest !== undefined && measurement.chest !== null ? Number(measurement.chest) : null,
+      arm: measurement.arm !== undefined && measurement.arm !== null ? Number(measurement.arm) : null,
+      shoulder: measurement.shoulder !== undefined && measurement.shoulder !== null ? Number(measurement.shoulder) : null,
+      hip: measurement.hip !== undefined && measurement.hip !== null ? Number(measurement.hip) : null,
+      leg: measurement.leg !== undefined && measurement.leg !== null ? Number(measurement.leg) : null,
+      neck: measurement.neck !== undefined && measurement.neck !== null ? Number(measurement.neck) : null,
+      bodyFat: measurement.bodyFat !== undefined && measurement.bodyFat !== null ? Number(measurement.bodyFat) : null,
+      notes: measurement.notes || '',
+      createdAt: measurement.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    const sanitized = sanitizeForFirestore(cleanEntry);
     try {
-      await setDoc(doc(db, 'bodyMeasurements', measurement.id), {
-        ...measurement,
-        userId,
-      });
+      await setDoc(doc(db, 'bodyMeasurements', measurementId), sanitized, { merge: true });
     } catch (error) {
+      console.error("Measurement save error:", error, "Firestore sanitized payload:", JSON.stringify(sanitized));
       handleFirestoreError(error, OperationType.WRITE, path);
     }
   },
@@ -331,13 +441,27 @@ export const databaseService = {
 
   // --- MEAL ENTRIES ---
   async saveMealEntry(meal: MealEntry, userId: string): Promise<void> {
-    const path = `mealEntries/${meal.id}`;
+    const mealId = meal.id || Math.random().toString(36).substring(2, 9);
+    const path = `mealEntries/${mealId}`;
+    const cleanMeal = {
+      id: mealId,
+      userId,
+      date: meal.date || new Date().toISOString().split('T')[0],
+      mealType: meal.mealType || 'Ara Öğün',
+      foodName: meal.foodName || 'Öğün',
+      calories: Number(meal.calories || 0),
+      protein: Number(meal.protein || 0),
+      carbs: Number(meal.carbs || 0),
+      fat: Number(meal.fat || 0),
+      notes: meal.notes || '',
+      createdAt: meal.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    const sanitized = sanitizeForFirestore(cleanMeal);
     try {
-      await setDoc(doc(db, 'mealEntries', meal.id), {
-        ...meal,
-        userId,
-      });
+      await setDoc(doc(db, 'mealEntries', mealId), sanitized, { merge: true });
     } catch (error) {
+      console.error("Meal save error:", error, "Firestore sanitized payload:", JSON.stringify(sanitized));
       handleFirestoreError(error, OperationType.WRITE, path);
     }
   },
@@ -377,10 +501,12 @@ export const databaseService = {
       // Since waterEntries are stored per-date in a denormalized way, let's write them individually
       for (const entry of entries) {
         const id = `${userId}_${entry.date}`;
-        await setDoc(doc(db, 'waterEntries', id), {
-          ...entry,
+        const cleanEntry = {
+          date: entry.date,
+          amountMl: Number(entry.amountMl || 0),
           userId,
-        });
+        };
+        await setDoc(doc(db, 'waterEntries', id), sanitizeForFirestore(cleanEntry), { merge: true });
       }
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, path);
@@ -390,12 +516,13 @@ export const databaseService = {
   async saveSingleWaterEntry(date: string, amountMl: number, userId: string): Promise<void> {
     const id = `${userId}_${date}`;
     const path = `waterEntries/${id}`;
+    const cleanEntry = {
+      date,
+      amountMl: Number(amountMl || 0),
+      userId,
+    };
     try {
-      await setDoc(doc(db, 'waterEntries', id), {
-        date,
-        amountMl,
-        userId,
-      });
+      await setDoc(doc(db, 'waterEntries', id), sanitizeForFirestore(cleanEntry), { merge: true });
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, path);
     }
@@ -561,8 +688,17 @@ export const databaseService = {
   // --- COACH NOTES ---
   async saveCoachNote(note: { id: string; coachId: string; athleteId: string; title: string; note: string; createdAt: string }): Promise<void> {
     const path = `coachNotes/${note.id}`;
+    const cleanNote = {
+      id: note.id,
+      coachId: note.coachId || '',
+      athleteId: note.athleteId || '',
+      title: note.title || '',
+      note: note.note || '',
+      createdAt: note.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
     try {
-      await setDoc(doc(db, 'coachNotes', note.id), note);
+      await setDoc(doc(db, 'coachNotes', note.id), sanitizeForFirestore(cleanNote), { merge: true });
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, path);
     }
@@ -599,8 +735,21 @@ export const databaseService = {
   // --- COACH GOALS ---
   async saveCoachGoal(goal: { id: string; coachId: string; athleteId: string; goalType: string; title: string; description?: string; targetValue?: string; deadline?: string; status: 'pending' | 'completed' | 'cancelled'; createdAt: string }): Promise<void> {
     const path = `coachGoals/${goal.id}`;
+    const cleanGoal = {
+      id: goal.id,
+      coachId: goal.coachId || '',
+      athleteId: goal.athleteId || '',
+      goalType: goal.goalType || '',
+      title: goal.title || '',
+      description: goal.description || '',
+      targetValue: goal.targetValue || '',
+      deadline: goal.deadline || '',
+      status: goal.status || 'pending',
+      createdAt: goal.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
     try {
-      await setDoc(doc(db, 'coachGoals', goal.id), goal);
+      await setDoc(doc(db, 'coachGoals', goal.id), sanitizeForFirestore(cleanGoal), { merge: true });
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, path);
     }
@@ -618,7 +767,7 @@ export const databaseService = {
   async updateCoachGoalStatus(id: string, status: 'pending' | 'completed' | 'cancelled'): Promise<void> {
     const path = `coachGoals/${id}`;
     try {
-      await updateDoc(doc(db, 'coachGoals', id), { status });
+      await updateDoc(doc(db, 'coachGoals', id), sanitizeForFirestore({ status, updatedAt: new Date().toISOString() }));
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, path);
     }

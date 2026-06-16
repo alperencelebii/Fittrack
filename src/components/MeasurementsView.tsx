@@ -129,7 +129,7 @@ export default function MeasurementsView({
       leg: parseNum(formLeg),
       neck: parseNum(formNeck),
       bodyFat: parseNum(formBodyFat),
-      notes: formNotes.trim() || undefined,
+      notes: formNotes.trim(),
     };
 
     let updatedList: BodyMeasurement[];

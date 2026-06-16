@@ -66,6 +66,8 @@ export interface WeightEntry {
   date: string; // YYYY-MM-DD
   weight: number; // kg
   notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface BodyMeasurement {
@@ -80,6 +82,8 @@ export interface BodyMeasurement {
   neck?: number; // cm
   bodyFat?: number; // %
   notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type MealType = 'Kahvaltı' | 'Öğle' | 'Akşam' | 'Ara Öğün';
@@ -94,6 +98,8 @@ export interface MealEntry {
   carbs: number; // g
   fat: number; // g;
   notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface WaterEntry {

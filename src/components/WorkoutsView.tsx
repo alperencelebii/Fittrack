@@ -198,7 +198,7 @@ export default function WorkoutsView({
       id: Math.random().toString(36).substring(2, 9),
       name: exName.trim(),
       sets: exSetsList,
-      notes: exNotes.trim() || undefined,
+      notes: exNotes.trim(),
     };
 
     setFormExercises((prev) => [...prev, newEx]);
@@ -243,7 +243,7 @@ export default function WorkoutsView({
       duration: durationNum,
       caloriesBurned: caloriesNum,
       difficulty: formDifficulty,
-      notes: formNotes.trim() || undefined,
+      notes: formNotes.trim(),
       exercises: formExercises.map((ex) => normalizeExercise(ex)),
     };
 
