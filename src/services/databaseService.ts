@@ -167,6 +167,18 @@ export function normalizeMeal(meal: any): MealEntry {
   if (!meal) {
     meal = {};
   }
+  const rawItems = Array.isArray(meal.items) ? meal.items : [];
+  const normalizedItems = rawItems.map((it: any) => ({
+    id: it.id || Math.random().toString(36).substring(2, 9),
+    foodId: it.foodId || '',
+    name: it.name || 'Yiyecek',
+    amountGram: Number(it.amountGram || 100),
+    calories: Number(it.calories || 0),
+    protein: Number(it.protein || 0),
+    carbs: Number(it.carbs || 0),
+    fat: Number(it.fat || 0)
+  }));
+
   return {
     id: meal.id || Math.random().toString(36).substring(2, 9),
     date: meal.date || new Date().toISOString().split('T')[0],
@@ -177,6 +189,7 @@ export function normalizeMeal(meal: any): MealEntry {
     carbs: Number(meal.carbs || 0),
     fat: Number(meal.fat || 0),
     notes: meal.notes || '',
+    items: normalizedItems,
     createdAt: meal.createdAt || new Date().toISOString(),
     updatedAt: meal.updatedAt || new Date().toISOString()
   };
@@ -462,18 +475,20 @@ export const databaseService = {
   async saveMealEntry(meal: MealEntry, userId: string): Promise<void> {
     const mealId = meal.id || Math.random().toString(36).substring(2, 9);
     const path = `mealEntries/${mealId}`;
+    const normalized = normalizeMeal(meal);
     const cleanMeal = {
       id: mealId,
       userId,
-      date: meal.date || new Date().toISOString().split('T')[0],
-      mealType: meal.mealType || 'Ara Öğün',
-      foodName: meal.foodName || 'Öğün',
-      calories: Number(meal.calories || 0),
-      protein: Number(meal.protein || 0),
-      carbs: Number(meal.carbs || 0),
-      fat: Number(meal.fat || 0),
-      notes: meal.notes || '',
-      createdAt: meal.createdAt || new Date().toISOString(),
+      date: normalized.date,
+      mealType: normalized.mealType,
+      foodName: normalized.foodName,
+      calories: normalized.calories,
+      protein: normalized.protein,
+      carbs: normalized.carbs,
+      fat: normalized.fat,
+      notes: normalized.notes,
+      items: normalized.items,
+      createdAt: normalized.createdAt,
       updatedAt: new Date().toISOString(),
     };
     const sanitized = sanitizeForFirestore(cleanMeal);

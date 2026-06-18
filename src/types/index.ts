@@ -88,6 +88,17 @@ export interface BodyMeasurement {
 
 export type MealType = 'Kahvaltı' | 'Öğle' | 'Akşam' | 'Ara Öğün';
 
+export interface MealFoodItem {
+  id: string;
+  foodId?: string;
+  name: string;
+  amountGram: number;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
 export interface MealEntry {
   id: string;
   date: string; // YYYY-MM-DD
@@ -98,6 +109,7 @@ export interface MealEntry {
   carbs: number; // g
   fat: number; // g;
   notes?: string;
+  items?: MealFoodItem[];
   createdAt?: string;
   updatedAt?: string;
 }

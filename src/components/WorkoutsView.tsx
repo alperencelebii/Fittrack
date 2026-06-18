@@ -5,6 +5,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Workout, WorkoutType, WorkoutDifficulty, Exercise, WorkoutSet } from '../types';
+import { exerciseDatabase, ExerciseDatabaseItem } from '../data/exerciseDatabase';
 import {
   normalizeExerciseSets,
   normalizeExercise,
@@ -27,6 +28,7 @@ import {
   X,
   AlertTriangle,
   Sparkles,
+  Filter,
 } from 'lucide-react';
 
 interface WorkoutsViewProps {
@@ -87,6 +89,86 @@ export default function WorkoutsView({
   const [exNotes, setExNotes] = useState('');
   const [exError, setExError] = useState('');
 
+  // Exercise Database search and filtering states
+  const [exerciseSearchQuery, setExerciseSearchQuery] = useState('');
+  const [exFilterCategory, setExFilterCategory] = useState('All');
+  const [exFilterMuscle, setExFilterMuscle] = useState('All');
+  const [exFilterEquipment, setExFilterEquipment] = useState('All');
+  const [selectedExDbItem, setSelectedExDbItem] = useState<ExerciseDatabaseItem | null>(null);
+
+  // Auto-extract workout filters from exercise database
+  const uniqueExerciseCategories = useMemo(() => {
+    const list = exerciseDatabase.map((item) => item.category);
+    return ['All', ...Array.from(new Set(list))];
+  }, []);
+
+  const uniqueExerciseMuscles = useMemo(() => {
+    const list = exerciseDatabase.map((item) => item.muscleGroup);
+    return ['All', ...Array.from(new Set(list))];
+  }, []);
+
+  const uniqueExerciseEquipment = useMemo(() => {
+    const list = exerciseDatabase.map((item) => item.equipment);
+    return ['All', ...Array.from(new Set(list))];
+  }, []);
+
+  // Filtered exercise suggestion list (database lookup)
+  const filteredSuggestionList = useMemo(() => {
+    // Show nothing if no search fields are used
+    if (!exerciseSearchQuery.trim() && exFilterCategory === 'All' && exFilterMuscle === 'All' && exFilterEquipment === 'All') {
+      return [];
+    }
+    const query = exerciseSearchQuery.toLowerCase().trim();
+    return exerciseDatabase.filter((item) => {
+      if (exFilterCategory !== 'All' && item.category !== exFilterCategory) return false;
+      if (exFilterMuscle !== 'All' && item.muscleGroup !== exFilterMuscle) return false;
+      if (exFilterEquipment !== 'All' && item.equipment !== exFilterEquipment) return false;
+      if (query) {
+        const matchesName = item.name.toLowerCase().includes(query);
+        const matchesCat = item.category.toLowerCase().includes(query);
+        const matchesMuscle = item.muscleGroup.toLowerCase().includes(query);
+        const matchesEq = item.equipment.toLowerCase().includes(query);
+        const matchesKw = Array.isArray(item.keywords) && item.keywords.some((kw) => kw.toLowerCase().includes(query));
+        if (!matchesName && !matchesCat && !matchesMuscle && !matchesEq && !matchesKw) {
+          return false;
+        }
+      }
+      return true;
+    }).slice(0, 8); // Display top 8 results in elegant grid
+  }, [exerciseSearchQuery, exFilterCategory, exFilterMuscle, exFilterEquipment]);
+
+  // Handle exercise selection from list
+  const handleSelectExerciseFromDb = (item: ExerciseDatabaseItem) => {
+    setSelectedExDbItem(item);
+    setExName(item.name);
+    
+    // Auto fill defaults
+    const defaultReps = item.defaultReps || 10;
+    const defaultSets = item.defaultSets || 3;
+    const defaultWeight = 20;
+    const defaultRest = 60;
+
+    const initialSets: WorkoutSet[] = [];
+    for (let i = 1; i <= defaultSets; i++) {
+      initialSets.push({
+        id: Math.random().toString(36).substring(2, 9),
+        setNumber: i,
+        reps: defaultReps,
+        weight: defaultWeight,
+        restSeconds: defaultRest,
+        notes: '',
+      });
+    }
+
+    setExSetsList(initialSets);
+    setExerciseSearchQuery('');
+    // Clear filters value to let user continue smoothly
+    setExFilterCategory('All');
+    setExFilterMuscle('All');
+    setExFilterEquipment('All');
+    onShowToast(`"${item.name}" egzersizi seçildi ve varsayılan setleri dolduruldu.`);
+  };
+
   // Auto trigger modal if quick action was called from dashboard
   React.useEffect(() => {
     if (quickActionTriggered) {
@@ -105,6 +187,7 @@ export default function WorkoutsView({
     setFormDifficulty('Orta');
     setFormNotes('');
     setFormExercises([]);
+    setSelectedExDbItem(null);
     clearExerciseInputs();
     setIsModalOpen(true);
   };
@@ -120,9 +203,10 @@ export default function WorkoutsView({
     setFormDifficulty(w.difficulty);
     setFormNotes(w.notes || '');
     
-    // Normalize legacy simple set structures to actual sets list for rich form editing
+    // Normalize legacy sets structures to actual sets list for rich form editing
     const normalized = w.exercises.map((ex: any) => normalizeExercise(ex));
     setFormExercises(normalized);
+    setSelectedExDbItem(null);
     clearExerciseInputs();
     setIsModalOpen(true);
   };
@@ -134,6 +218,10 @@ export default function WorkoutsView({
     ]);
     setExNotes('');
     setExError('');
+    setExerciseSearchQuery('');
+    setExFilterCategory('All');
+    setExFilterMuscle('All');
+    setExFilterEquipment('All');
   };
 
   const handleAddSetToCurrentEx = () => {
@@ -203,7 +291,8 @@ export default function WorkoutsView({
 
     setFormExercises((prev) => [...prev, newEx]);
     clearExerciseInputs();
-    onShowToast('Egzersiz antrenmana eklendi.');
+    setSelectedExDbItem(null);
+    onShowToast('Egzersiz başarıyla antrenmana eklendi.');
   };
 
   const handleRemoveExerciseFromWorkout = (exId: string) => {
@@ -283,7 +372,7 @@ export default function WorkoutsView({
         <div>
           <h1 className="text-2xl font-black text-white tracking-tight">Antrenman Takip Günlüğü</h1>
           <p className="text-xs text-slate-400 mt-1">
-            Yaptığınız antrenmanları ve egzersiz setlerini loglayarak gelişimizi takip edin.
+            Yaptığınız antrenmanları ve egzersiz setlerini loglayarak gelişiminizi takip edin.
           </p>
         </div>
         <button
@@ -477,12 +566,12 @@ export default function WorkoutsView({
                               {/* Sets List */}
                               <div className="space-y-1.5 pl-1.5">
                                 {sets.map((s, sIdx) => (
-                                  <div key={s.id || sIdx} className="flex items-center justify-between text-[11px] text-slate-450 font-medium bg-slate-950/50 p-1.5 rounded border border-slate-850/60">
-                                    <span className="text-slate-500 font-bold">Set #{s.setNumber}</span>
+                                  <div key={s.id || sIdx} className="flex items-center justify-between text-[11px] text-slate-450 font-medium bg-slate-950/50 p-1.5 rounded border border-slate-850/60 font-mono">
+                                    <span className="text-slate-550 font-extrabold">Set #{s.setNumber}</span>
                                     <div className="flex gap-3">
-                                      <span><strong>{s.reps}</strong> tekrar</span>
+                                      <span><strong>{s.reps}</strong> rep</span>
                                       {s.weight > 0 && <span className="text-emerald-400 font-bold"><strong>{s.weight}</strong> kg</span>}
-                                      <span className="text-slate-500">⏱️ {s.restSeconds}sn</span>
+                                      <span className="text-slate-500">⏱️ {s.restSeconds}s</span>
                                     </div>
                                     {s.notes && <span className="text-[10px] text-slate-500 italic truncate max-w-[120px]" title={s.notes}>"{s.notes}"</span>}
                                   </div>
@@ -507,7 +596,7 @@ export default function WorkoutsView({
         <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4 overflow-y-auto">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
             {/* Modal Header */}
-            <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900">
+            <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900 shrink-0">
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
                 <Dumbbell className="text-emerald-400" />
                 {editingWorkout ? 'Antrenmanı Düzenle' : 'Yeni Antrenman Logla'}
@@ -525,7 +614,7 @@ export default function WorkoutsView({
               
               {/* Part 1: Workout General Information */}
               <div className="space-y-4">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest pb-1 border-b border-slate-800 flex items-center gap-1">
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest pb-1 border-b border-slate-800 flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-emerald-400" /> Genel Antrenman Bilgileri
                 </h4>
                 
@@ -584,7 +673,7 @@ export default function WorkoutsView({
                       min="1"
                       value={formDuration}
                       onChange={(e) => setFormDuration(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
                     />
                   </div>
 
@@ -597,7 +686,7 @@ export default function WorkoutsView({
                       min="0"
                       value={formCalories}
                       onChange={(e) => setFormCalories(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
                     />
                   </div>
 
@@ -611,7 +700,7 @@ export default function WorkoutsView({
                           key={diff}
                           type="button"
                           onClick={() => setFormDifficulty(diff)}
-                          className={`flex-1 py-2 text-xs font-bold rounded-lg border transition cursor-pointer ${
+                          className={`flex-1 py-1.5 text-xs font-bold rounded-lg border transition cursor-pointer ${
                             formDifficulty === diff
                               ? 'bg-emerald-400 text-slate-950 border-emerald-400'
                               : 'bg-slate-950 text-slate-300 border-slate-800 hover:bg-slate-900'
@@ -640,24 +729,118 @@ export default function WorkoutsView({
 
               {/* Part 2: Nested Exercises Builder */}
               <div className="space-y-4 pt-2">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest pb-1 border-b border-slate-800 flex items-center gap-1">
-                  <Dumbbell className="w-3.5 h-3.5 text-emerald-400" /> Egzersiz Ekle
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest pb-1 border-b border-slate-800 flex items-center gap-1.5">
+                  <Dumbbell className="w-3.5 h-3.5 text-emerald-400" /> Egzersiz Ekleme Paneli
                 </h4>
 
                 {/* Sub-form fields for an individual exercise */}
-                <div className="bg-slate-950 p-4 border border-slate-850 rounded-xl space-y-4">
+                <div className="bg-slate-950 p-4 sm:p-5 border border-slate-850 rounded-xl space-y-4">
+                  
+                  {/* SEARCH EXERCISE DATABASE */}
+                  <div className="bg-slate-900/60 p-4 rounded-lg border border-slate-800/80 space-y-3">
+                    <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest block">Lokal Egzersiz Arama</span>
+                    
+                    {/* Filters category, muscle, equipment inside row */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <div>
+                        <label className="block text-[8px] text-slate-500 font-bold uppercase mb-1">Kategori</label>
+                        <select
+                          value={exFilterCategory}
+                          onChange={(e) => setExFilterCategory(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-850 rounded px-2 py-1 text-[11px] text-slate-300 focus:outline-none focus:border-emerald-400"
+                        >
+                          {uniqueExerciseCategories.map((cat) => (
+                            <option key={cat} value={cat}>{cat === 'All' ? 'Tüm Kategoriler' : cat}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[8px] text-slate-500 font-bold uppercase mb-1">Hedef Kas Grubu</label>
+                        <select
+                          value={exFilterMuscle}
+                          onChange={(e) => setExFilterMuscle(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-850 rounded px-2 py-1 text-[11px] text-slate-300 focus:outline-none focus:border-emerald-400"
+                        >
+                          {uniqueExerciseMuscles.map((m) => (
+                            <option key={m} value={m}>{m === 'All' ? 'Tüm Kaslar' : m}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[8px] text-slate-500 font-bold uppercase mb-1">Kullanılan Ekipman</label>
+                        <select
+                          value={exFilterEquipment}
+                          onChange={(e) => setExFilterEquipment(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-850 rounded px-2 py-1 text-[11px] text-slate-300 focus:outline-none focus:border-emerald-400"
+                        >
+                          {uniqueExerciseEquipment.map((eq) => (
+                            <option key={eq} value={eq}>{eq === 'All' ? 'Tüm Ekipmanlar' : eq}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="relative">
+                      <label className="block text-[10px] text-slate-400 font-bold uppercase mb-1">Egzersiz / Makine Adı Ara</label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="Örn: Bench Press, Squat, Lat Pulldown..."
+                          value={exerciseSearchQuery}
+                          onChange={(e) => setExerciseSearchQuery(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-850 rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
+                        />
+                        <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-2.5" />
+                      </div>
+
+                      {/* Filter Search Results Suggestion Drops */}
+                      {filteredSuggestionList.length > 0 && (
+                        <div className="absolute left-0 right-0 bg-slate-950 border border-slate-800 rounded-lg mt-1 shadow-2xl z-20 divide-y divide-slate-850 max-h-48 overflow-y-auto">
+                          {filteredSuggestionList.map((item) => (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => handleSelectExerciseFromDb(item)}
+                              className="w-full text-left p-2 hover:bg-slate-900 flex items-center justify-between text-xs transition"
+                            >
+                              <div>
+                                <span className="font-semibold text-slate-200 block">{item.name}</span>
+                                <span className="text-[10px] text-slate-500">
+                                  {item.category} • {item.muscleGroup} • {item.equipment}
+                                </span>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <span className="bg-emerald-500/10 text-emerald-400 font-bold px-1.5 py-0.5 rounded text-[9px] block">
+                                  {item.defaultSets} Set x {item.defaultReps} Rep
+                                </span>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   {exError && <p className="text-xs text-red-400 font-semibold">{exError}</p>}
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                        Egzersiz Adı *
+                        Seçilen Egzersiz Adı *
                       </label>
                       <input
                         type="text"
-                        placeholder="Örn: Bench Press, Lat Pulldown, Squat..."
+                        required={formExercises.length === 0}
+                        placeholder="Egzersiz adı girin veya yukarıdan aratın..."
                         value={exName}
-                        onChange={(e) => setExName(e.target.value)}
+                        onChange={(e) => {
+                          setExName(e.target.value);
+                          if (selectedExDbItem && selectedExDbItem.name !== e.target.value) {
+                            setSelectedExDbItem(null);
+                          }
+                        }}
                         className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
                       />
                     </div>
@@ -679,7 +862,7 @@ export default function WorkoutsView({
                   {/* Multi-set input structure */}
                   <div className="border border-slate-850 rounded-xl overflow-hidden bg-slate-900/50">
                     <div className="bg-slate-900 px-3 py-2 border-b border-slate-850 flex justify-between items-center">
-                      <h5 className="text-[10px] font-black text-emerald-400 uppercase tracking-wider">Egzersiz Set Parametreleri</h5>
+                      <h5 className="text-[10px] font-black text-emerald-400 uppercase tracking-wider">Setleri Belirle</h5>
                       <button
                         type="button"
                         onClick={handleAddSetToCurrentEx}
@@ -690,7 +873,7 @@ export default function WorkoutsView({
                     </div>
 
                     <div className="p-3 space-y-2">
-                      {exSetsList.map((set, setIndex) => (
+                       {exSetsList.map((set, setIndex) => (
                         <div key={set.id} className="grid grid-cols-12 gap-2 items-center bg-slate-950 p-2 rounded-lg border border-slate-850">
                           {/* Set number display */}
                           <div className="col-span-1 text-center font-bold text-slate-450 text-xs">
@@ -705,7 +888,7 @@ export default function WorkoutsView({
                               min="1"
                               value={set.reps}
                               onChange={(e) => handleUpdateSetOfCurrentEx(setIndex, 'reps', e.target.value)}
-                              className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-emerald-500"
+                              className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
                             />
                           </div>
 
@@ -718,7 +901,7 @@ export default function WorkoutsView({
                               min="0"
                               value={set.weight}
                               onChange={(e) => handleUpdateSetOfCurrentEx(setIndex, 'weight', e.target.value)}
-                              className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-emerald-500"
+                              className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
                             />
                           </div>
 
@@ -731,7 +914,7 @@ export default function WorkoutsView({
                               step="5"
                               value={set.restSeconds}
                               onChange={(e) => handleUpdateSetOfCurrentEx(setIndex, 'restSeconds', e.target.value)}
-                              className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-emerald-500"
+                              className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
                             />
                           </div>
 
@@ -740,10 +923,10 @@ export default function WorkoutsView({
                             <label className="block text-[8px] text-slate-500 uppercase font-bold mb-0.5">Set Notu</label>
                             <input
                               type="text"
-                              placeholder="zor/kolay"
+                              placeholder="örn: zor"
                               value={set.notes || ''}
                               onChange={(e) => handleUpdateSetOfCurrentEx(setIndex, 'notes', e.target.value)}
-                              className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-emerald-500 placeholder:text-slate-600"
+                              className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-emerald-500 placeholder:text-slate-650"
                             />
                           </div>
 
@@ -782,11 +965,11 @@ export default function WorkoutsView({
                     Eklenecek Egzersiz Listesi ({formExercises.length})
                   </h5>
                   {formExercises.length === 0 ? (
-                    <div className="p-4 bg-slate-950/40 border border-dashed border-slate-800 rounded-xl text-center text-xs text-slate-500">
-                      Bu antrenmana henüz hiçbir egzersiz eklenmedi. Yukarıdaki alanlardan hazırlayıp ekleyin.
+                    <div className="p-4 bg-slate-950/40 border border-dashed border-slate-800 rounded-xl text-center text-xs text-slate-500 font-medium">
+                      Bu antrenmana henüz hiçbir egzersiz eklenmedi. Yukarıdaki alandan hazırlayıp ekleyin.
                     </div>
                   ) : (
-                    <div className="space-y-1.5">
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
                       {formExercises.map((e, index) => {
                         const sets = normalizeExerciseSets(e);
                         return (
@@ -797,8 +980,8 @@ export default function WorkoutsView({
                             <div className="flex-1">
                               <span className="font-bold text-emerald-400 mr-1.5">{index + 1}.</span>
                               <span className="text-white font-semibold">{e.name}</span>
-                              <span className="text-slate-400 font-medium ml-2">
-                                • {sets.length} Set | Toplam Volume: {calculateWorkoutVolume({ exercises: [e] })} kg
+                              <span className="text-slate-400 font-medium ml-2 font-mono">
+                                • {sets.length} Set | Toplam Volüm: {calculateWorkoutVolume({ exercises: [e] })} kg
                               </span>
                               {e.notes && (
                                 <span className="text-slate-500 italic block mt-0.5 ml-4">
@@ -809,7 +992,7 @@ export default function WorkoutsView({
                             <button
                               type="button"
                               onClick={() => handleRemoveExerciseFromWorkout(e.id)}
-                              className="p-1 text-slate-400 hover:text-rose-400 cursor-pointer"
+                              className="p-1 text-slate-400 hover:text-rose-450 cursor-pointer transition"
                               title="Çıkar"
                             >
                               <Trash2 className="w-4 h-4" />
