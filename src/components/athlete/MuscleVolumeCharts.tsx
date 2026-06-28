@@ -141,7 +141,7 @@ export default function MuscleVolumeCharts({
 
         {Object.keys(muscleVolumes).length === 0 && (
           <div className="col-span-full text-center py-12 text-slate-500 text-xs bg-slate-950/20 border border-dashed border-slate-800 rounded-xl">
-            Son 7 günde tamamlanmış antrenman seti verisi bulunmuyor. Antrenmanlarınızı kaydettikçe kas grubu hacimleri burada analiz edilir.
+            Analiz için yeterli antrenman kaydı bulunmuyor.
           </div>
         )}
       </div>

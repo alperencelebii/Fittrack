@@ -71,9 +71,17 @@ export default function ProgressPhotosView({
       setIsUploadOpen(false);
       setPhotoUrl('');
       setNotes('');
-    } catch (err) {
-      console.error(err);
-      onShowToast('Fotoğraf eklenemedi.');
+    } catch (err: any) {
+      console.error('AI Antrenman/Gelişim gerçek hata:', err);
+      let msg = 'Fotoğraf eklenemedi.';
+      if (!userId) {
+        msg = 'Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.';
+      } else if (err.message && err.message.includes('kullanıcı oturumu bulunamadı')) {
+        msg = 'Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.';
+      } else if (err.message) {
+        msg = err.message;
+      }
+      onShowToast(msg);
     }
   };
 
@@ -84,8 +92,15 @@ export default function ProgressPhotosView({
         onShowToast('Fotoğraf silindi.');
         if (compareIdA === id) setCompareIdA('');
         if (compareIdB === id) setCompareIdB('');
-      } catch (err) {
-        console.error(err);
+      } catch (err: any) {
+        console.error('AI Antrenman/Gelişim gerçek hata:', err);
+        let msg = 'Fotoğraf silinemedi.';
+        if (!userId) {
+          msg = 'Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.';
+        } else if (err.message && err.message.includes('kullanıcı oturumu bulunamadı')) {
+          msg = 'Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.';
+        }
+        onShowToast(msg);
       }
     }
   };
@@ -277,7 +292,7 @@ export default function ProgressPhotosView({
 
         {photos.length === 0 && (
           <div className="col-span-full text-center py-12 text-slate-500 text-xs bg-slate-950/20 rounded-xl border border-dashed border-slate-800">
-            Kayıtlı gelişim fotoğrafı bulunmuyor. Düzenli olarak form gelişim fotoğraflarınızı buraya ekleyin!
+            Henüz kayıt yok. İlk kaydınızı ekleyerek takibe başlayın.
           </div>
         )}
       </div>

@@ -251,7 +251,7 @@ export default function MeasurementsView({
         {sortedMeasurementsDesc.length === 0 ? (
           <div className="p-10 text-center space-y-2">
             <Ruler className="w-10 h-10 text-slate-500 mx-auto" />
-            <p className="text-xs text-slate-400">Henüz ölçü kaydı girmediniz. Ölçümlerinizi kaydederek gelişimi cm bazında görebilirsiniz.</p>
+            <p className="text-xs text-slate-400 font-medium">Henüz kayıt yok. İlk kaydınızı ekleyerek takibe başlayın.</p>
           </div>
         ) : (
           <div className="overflow-x-auto rounded-xl border border-slate-850">

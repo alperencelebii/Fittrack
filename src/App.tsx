@@ -399,9 +399,15 @@ function MainApp() {
         });
         if (edited) await databaseService.saveBodyMeasurement(edited, currentUser.uid);
       }
-    } catch (err) {
-      console.error(err);
-      showToast(`Ölçüm kaydedilemedi: ${getFriendlyErrorMessage(err)}`);
+    } catch (err: any) {
+      console.error('AI Antrenman/Gelişim gerçek hata:', err);
+      let msg = `Ölçüm kaydedilemedi: ${getFriendlyErrorMessage(err)}`;
+      if (!currentUser) {
+        msg = 'Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.';
+      } else if (err.message && err.message.includes('kullanıcı oturumu bulunamadı')) {
+        msg = 'Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.';
+      }
+      showToast(msg);
     }
   };
 
