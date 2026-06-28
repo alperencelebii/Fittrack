@@ -18,19 +18,25 @@ service cloud.firestore {
 
     function isMyCoach(athleteId) {
       return isSignedIn() && (
-        exists(/databases/$(database)/documents/users/$(athleteId)) &&
-        'coachId' in get(/databases/$(database)/documents/users/$(athleteId)).data &&
-        get(/databases/$(database)/documents/users/$(athleteId)).data.coachId == request.auth.uid
+        get(/databases/$(database)/documents/users/$(athleteId)).data.get('coachId', null) == request.auth.uid ||
+        exists(/databases/$(database)/documents/coachAthleteRelations/$(request.auth.uid)_$(athleteId))
       );
     }
 
     // 1. Users Collection
     match /users/{userId} {
+      // Own profile read
       allow read: if isOwner(userId);
+
+      // Coach profiles are public/readable to enable invitation checks and verified connections
+      // and allow reading if they are the athlete's coach (either via coachId or coachAthleteRelations)
       allow read: if isSignedIn() && (
-        (resource != null && 'role' in resource.data && resource.data.role == "coach") || 
-        (resource != null && 'coachId' in resource.data && resource.data.coachId == request.auth.uid)
+        resource.data.get('role', 'athlete') == "coach" || 
+        resource.data.get('coachId', null) == request.auth.uid ||
+        exists(/databases/$(database)/documents/coachAthleteRelations/$(request.auth.uid)_$(userId))
       );
+      
+      // Users can create/update own profiles
       allow create, update: if isOwner(userId);
     }
 
@@ -88,6 +94,8 @@ service cloud.firestore {
     // 9. CoachAthleteRelations Collection
     match /coachAthleteRelations/{relationId} {
       allow read: if isSignedIn() && (resource.data.athleteId == request.auth.uid || resource.data.coachId == request.auth.uid);
+      
+      // Create/Delete relation document
       allow create, delete: if isSignedIn();
     }
 
@@ -107,62 +115,6 @@ service cloud.firestore {
 
     // 12. NutritionDayStatuses Collection
     match /nutritionDayStatuses/{statusId} {
-      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isMyCoach(resource.data.userId));
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
-    }
-
-    // 13. GeneratedTrainingPrograms Collection
-    match /generatedTrainingPrograms/{programId} {
-      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isMyCoach(resource.data.userId));
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
-    }
-
-    // 14. TrainingCalendarEntries Collection
-    match /trainingCalendarEntries/{entryId} {
-      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isMyCoach(resource.data.userId));
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
-    }
-
-    // 15. WorkoutSetEntries Collection
-    match /workoutSetEntries/{setId} {
-      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isMyCoach(resource.data.userId));
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
-    }
-
-    // 16. PersonalRecords Collection
-    match /personalRecords/{recordId} {
-      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isMyCoach(resource.data.userId));
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
-    }
-
-    // 17. RecoveryEntries Collection
-    match /recoveryEntries/{recoveryId} {
-      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isMyCoach(resource.data.userId));
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
-    }
-
-    // 18. DeloadSuggestions Collection
-    match /deloadSuggestions/{suggestionId} {
-      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isMyCoach(resource.data.userId));
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
-    }
-
-    // 19. ProgressPhotos Collection
-    match /progressPhotos/{photoId} {
-      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isMyCoach(resource.data.userId));
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
-    }
-
-    // 20. BodyCompositionResults Collection
-    match /bodyCompositionResults/{resultId} {
       allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isMyCoach(resource.data.userId));
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;

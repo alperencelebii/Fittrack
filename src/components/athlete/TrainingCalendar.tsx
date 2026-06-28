@@ -115,9 +115,69 @@ export default function TrainingCalendar({
     }
 
     try {
+      // 1. Delete previous entries of this program to avoid duplication
+      const existingEntries = entries.filter(e => e.programId === activeProgram.id);
+      for (const e of existingEntries) {
+        await databaseService.deleteTrainingCalendarEntry(e.id);
+      }
+
+      // 2. Spread the program days starting from program's startDate
       const startDateStr = activeProgram.startDate || new Date().toISOString().split('T')[0];
-      await databaseService.generateCalendarFromProgram(userId, activeProgram, startDateStr);
-      onShowToast(`${activeProgram.durationWeeks || 8} haftalık antrenman planınız otomatik olarak takvime yerleştirildi! 🗓️⚡`);
+      const [startYear, startMonth, startDay] = startDateStr.split('-').map(Number);
+      const start = new Date(startYear, startMonth - 1, startDay);
+
+      const startDayOfWeek = start.getDay(); // 0 is Sunday, 1 is Monday, ..., 6 is Saturday
+      const daysToSubtract = startDayOfWeek === 0 ? 6 : startDayOfWeek - 1; // Days back to Monday
+      const mondayOfStartWeek = new Date(start);
+      mondayOfStartWeek.setDate(start.getDate() - daysToSubtract);
+
+      const weeklyDays = activeProgram.weeklyDays || 3;
+      const durationWeeks = activeProgram.durationWeeks || 4; // limit to 4 weeks or default 4 weeks for visibility
+
+      const workoutDayIndices = 
+        weeklyDays === 1 ? [0] :
+        weeklyDays === 2 ? [1, 3] :
+        weeklyDays === 3 ? [0, 2, 4] :
+        weeklyDays === 4 ? [0, 1, 3, 4] :
+        weeklyDays === 5 ? [0, 1, 2, 4, 5] :
+        weeklyDays === 6 ? [0, 1, 2, 3, 4, 5] :
+        [0, 1, 2, 3, 4, 5, 6];
+
+      let sessionIndex = 0;
+
+      for (let w = 0; w < durationWeeks; w++) {
+        for (let d = 0; d < 7; d++) {
+          const currentDate = new Date(mondayOfStartWeek);
+          currentDate.setDate(mondayOfStartWeek.getDate() + (w * 7 + d));
+          const dateStr = currentDate.toISOString().split('T')[0];
+
+          const isWorkout = workoutDayIndices.includes(d);
+          let sessionName = 'Dinlenme Günü';
+          let status: 'planned' | 'rest_day' = 'rest_day';
+
+          if (isWorkout && activeProgram.sessions.length > 0) {
+            const session = activeProgram.sessions[sessionIndex % activeProgram.sessions.length];
+            sessionName = session.name;
+            status = 'planned';
+            sessionIndex++;
+          }
+
+          const entry: TrainingCalendarEntry = {
+            id: `${activeProgram.id}_w${w}_d${d}`,
+            userId,
+            programId: activeProgram.id,
+            date: dateStr,
+            sessionName,
+            status,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+
+          await databaseService.saveTrainingCalendarEntry(entry);
+        }
+      }
+
+      onShowToast(`${durationWeeks} haftalık antrenman planınız otomatik olarak takvime yerleştirildi! 🗓️⚡`);
     } catch (err) {
       console.error(err);
       onShowToast('Otomatik planlama başarısız oldu.');

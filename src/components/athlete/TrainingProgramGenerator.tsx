@@ -2,7 +2,6 @@ import React, { useState, useMemo } from 'react';
 import { GeneratedTrainingProgram, ProgramWorkoutSession, UserSettings } from '../../types';
 import { databaseService } from '../../services/databaseService';
 import { EXERCISE_LIBRARY } from '../../data/exerciseLibrary';
-import { generateProgramWithFallback } from '../../utils/trainingProgramGenerator';
 import { 
   Sparkles, 
   Dumbbell, 
@@ -59,29 +58,169 @@ export default function TrainingProgramGenerator({
   const handleGenerate = async () => {
     setIsGenerating(true);
     try {
-      if (!userId) {
-        throw new Error('Geçerli bir kullanıcı oturumu bulunamadı.');
+      // Pick exercises depending on target splits and categories
+      const sessions: ProgramWorkoutSession[] = [];
+      const days = frequency;
+
+      for (let day = 1; day <= days; day++) {
+        const sessionExercises: any[] = [];
+        let sessionName = `Gün ${day}`;
+
+        if (split === 'full_body') {
+          sessionName = `Gelişim Günü ${day} (Tüm Vücut)`;
+          // Squat/Leg, Chest, Back, Shoulders, Arms, Core
+          const quadEx = EXERCISE_LIBRARY.find(e => e.primaryMuscles.includes('Quads')) || EXERCISE_LIBRARY[0];
+          const chestEx = EXERCISE_LIBRARY.find(e => e.primaryMuscles.includes('Göğüs')) || EXERCISE_LIBRARY[2];
+          const backEx = EXERCISE_LIBRARY.find(e => e.primaryMuscles.includes('Sırt')) || EXERCISE_LIBRARY[5];
+          const shoulderEx = EXERCISE_LIBRARY.find(e => e.primaryMuscles.includes('Omuz')) || EXERCISE_LIBRARY[8];
+          const armEx = EXERCISE_LIBRARY.find(e => e.primaryMuscles.includes('Biceps') || e.primaryMuscles.includes('Triceps')) || EXERCISE_LIBRARY[12];
+          const coreEx = EXERCISE_LIBRARY.find(e => e.primaryMuscles.includes('Karın')) || EXERCISE_LIBRARY[15];
+
+          [quadEx, chestEx, backEx, shoulderEx, armEx, coreEx].forEach((ex, index) => {
+            if (ex) {
+              sessionExercises.push({
+                exerciseId: ex.id,
+                name: ex.name,
+                sets: goal === 'strength' ? 4 : 3,
+                reps: goal === 'strength' ? '5-6' : goal === 'fat_loss' ? '12-15' : '8-12',
+                rpe: goal === 'strength' ? 9 : 8,
+                restSeconds: goal === 'strength' ? 180 : 90,
+                order: index + 1,
+                notes: index === 0 ? 'Bileşik ana hareket, nizami formda yapın.' : 'Tempolu ve kontrollü negatif tekrar.'
+              });
+            }
+          });
+        } else if (split === 'upper_lower') {
+          const isUpper = day % 2 === 1;
+          sessionName = isUpper ? `Üst Vücut (A)` : `Alt Vücut & Karın (B)`;
+
+          if (isUpper) {
+            const chestEx = EXERCISE_LIBRARY.find(e => e.primaryMuscles.includes('Göğüs')) || EXERCISE_LIBRARY[2];
+            const backEx = EXERCISE_LIBRARY.find(e => e.primaryMuscles.includes('Sırt')) || EXERCISE_LIBRARY[5];
+            const shoulderEx = EXERCISE_LIBRARY.find(e => e.primaryMuscles.includes('Omuz')) || EXERCISE_LIBRARY[8];
+            const bicepEx = EXERCISE_LIBRARY.find(e => e.primaryMuscles.includes('Biceps')) || EXERCISE_LIBRARY[12];
+            const tricepEx = EXERCISE_LIBRARY.find(e => e.primaryMuscles.includes('Triceps')) || EXERCISE_LIBRARY[13];
+
+            [chestEx, backEx, shoulderEx, bicepEx, tricepEx].forEach((ex, index) => {
+              if (ex) {
+                sessionExercises.push({
+                  exerciseId: ex.id,
+                  name: ex.name,
+                  sets: 4,
+                  reps: goal === 'strength' ? '6-8' : '8-12',
+                  rpe: 8,
+                  restSeconds: 90,
+                  order: index + 1,
+                  notes: 'Sıkıştırma noktalarında 1 sn bekleyin.'
+                });
+              }
+            });
+          } else {
+            const quadEx = EXERCISE_LIBRARY.find(e => e.primaryMuscles.includes('Quads')) || EXERCISE_LIBRARY[0];
+            const hamstringEx = EXERCISE_LIBRARY.find(e => e.primaryMuscles.includes('Hamstrings')) || EXERCISE_LIBRARY[1];
+            const calfEx = EXERCISE_LIBRARY.find(e => e.primaryMuscles.includes('Calves')) || EXERCISE_LIBRARY[11];
+            const absEx = EXERCISE_LIBRARY.find(e => e.primaryMuscles.includes('Karın')) || EXERCISE_LIBRARY[15];
+
+            [quadEx, hamstringEx, calfEx, absEx].forEach((ex, index) => {
+              if (ex) {
+                sessionExercises.push({
+                  exerciseId: ex.id,
+                  name: ex.name,
+                  sets: 4,
+                  reps: '10-15',
+                  rpe: 8,
+                  restSeconds: 90,
+                  order: index + 1,
+                  notes: 'Kalçayı ve omurgayı stabil tutun.'
+                });
+              }
+            });
+          }
+        } else {
+          // Bro Split or PPL presets
+          sessionName = `Antrenman Günü ${day}`;
+          // Standard full-body fallback for other splits to guarantee great exercises
+          const mainChest = EXERCISE_LIBRARY.filter(e => e.primaryMuscles.includes('Göğüs'))[day % 3] || EXERCISE_LIBRARY[2];
+          const mainBack = EXERCISE_LIBRARY.filter(e => e.primaryMuscles.includes('Sırt'))[day % 3] || EXERCISE_LIBRARY[5];
+          const mainLegs = EXERCISE_LIBRARY.filter(e => e.primaryMuscles.includes('Quads') || e.primaryMuscles.includes('Hamstrings'))[day % 3] || EXERCISE_LIBRARY[0];
+
+          [mainLegs, mainChest, mainBack].forEach((ex, index) => {
+            if (ex) {
+              sessionExercises.push({
+                exerciseId: ex.id,
+                name: ex.name,
+                sets: 4,
+                reps: '8-12',
+                rpe: 8,
+                restSeconds: 90,
+                order: index + 1,
+                notes: 'Ağırlık artışı için kendinizi zorlayın.'
+              });
+            }
+          });
+        }
+
+        sessions.push({
+          dayNumber: day,
+          name: sessionName,
+          exercises: sessionExercises,
+          isCompleted: false
+        });
       }
 
-      const newProgram = await generateProgramWithFallback({
+      const splitLabels: Record<string, string> = {
+        full_body: 'Tüm Vücut (Full Body)',
+        upper_lower: 'Üst / Alt (Upper / Lower)',
+        ppl: 'İtiş / Çekiş / Bacak (PPL)',
+        bro_split: 'Bölgesel (Bro Split)'
+      };
+
+      const goalLabels: Record<string, string> = {
+        muscle_gain: 'Kas Kazanımı & Hipertrofi',
+        fat_loss: 'Yağ Yakımı & Kondisyon',
+        strength: 'Saf Güç Gelişimi',
+        endurance: 'Dayanıklılık & Sağlık'
+      };
+
+      const levelLabels: Record<string, string> = {
+        beginner: 'Başlangıç',
+        intermediate: 'Orta Seviye',
+        advanced: 'İleri Seviye'
+      };
+
+      const programName = `AI ${goalLabels[goal]} Programı (${splitLabels[split]})`;
+
+      const newProgram: GeneratedTrainingProgram = {
+        id: Math.random().toString(36).substring(2, 9),
         userId,
-        goal,
-        experience,
-        frequency,
-        split,
+        name: programName,
+        goal: goalLabels[goal],
+        level: experience,
+        weeklyDays: frequency,
+        durationWeeks: 8,
         equipment: [],
-        priorityMuscles: []
-      }, userId);
+        priorityMuscles: [],
+        restrictions: [],
+        days: [],
+        startDate: new Date().toISOString().split('T')[0],
+        endDate: new Date(Date.now() + 8 * 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        difficulty: levelLabels[experience],
+        daysPerWeek: frequency,
+        sessions,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
 
       await databaseService.saveGeneratedTrainingProgram(newProgram);
       await databaseService.setActiveTrainingProgram(userId, newProgram.id);
 
       setSelectedProgramId(newProgram.id);
       setActiveTab('my-program');
-      onShowToast('Yeni Antrenman Programınız Başarıyla Oluşturuldu! ⚡');
-    } catch (err: any) {
-      console.error("handleGenerate failed with error:", err);
-      onShowToast(err.message || 'Program oluşturulurken hata yaşandı.');
+      onShowToast('Yeni AI Antrenman Programınız Başarıyla Oluşturuldu! ⚡');
+    } catch (err) {
+      console.error(err);
+      onShowToast('Program oluşturulurken hata yaşandı.');
     } finally {
       setIsGenerating(false);
     }

@@ -39,7 +39,7 @@ import {
   DeloadSuggestion,
   ProgressPhoto,
 } from '../types';
-import { calculateEstimatedOneRepMax, checkForNewPRs } from '../utils/prCalculations';
+import { calculateEstimatedOneRepMax } from '../utils/prCalculations';
 
 // --- HELPERS FOR DATA VALIDATION & COMPATIBILITY ---
 export function sanitizeForFirestore(value: any): any {
@@ -59,7 +59,7 @@ export function sanitizeForFirestore(value: any): any {
     return value.toISOString();
   }
   if (Array.isArray(value)) {
-    return value.map(sanitizeForFirestore).filter(v => v !== undefined);
+    return value.map(sanitizeForFirestore);
   }
   if (typeof value === 'object') {
     if (value.constructor && value.constructor.name !== 'Object' && value.constructor.name !== 'Array') {
@@ -67,43 +67,23 @@ export function sanitizeForFirestore(value: any): any {
     }
     const cleaned: any = {};
     for (const [key, val] of Object.entries(value)) {
-      let cleanedVal = val;
-      if (val === undefined || val === null) {
+      if (val === undefined) {
         if (['calories', 'protein', 'carbs', 'fat', 'weight', 'amountMl', 'duration', 'caloriesBurned', 'waist', 'chest', 'arm', 'shoulder', 'hip', 'leg', 'neck', 'bodyFat'].includes(key)) {
+          // Keep body measurements null if they are completely unentered, or 0 if we want default.
+          // Let's use null for body measurements to distinguish between empty and 0cm pazu or waist!
+          // Yes! If they are body measurements, let's return null if not defined, otherwise 0 for calories, carbs, etc.
           if (['waist', 'chest', 'arm', 'shoulder', 'hip', 'leg', 'neck', 'bodyFat'].includes(key)) {
             cleaned[key] = null;
           } else {
             cleaned[key] = 0;
           }
-          continue;
         } else if (['sets', 'exercises'].includes(key)) {
           cleaned[key] = [];
-          continue;
-        } else if (key === 'id') {
-          cleaned[key] = Math.random().toString(36).substring(2, 9);
-          continue;
-        } else if (key === 'userId') {
-          throw new Error('UserId is required for database operations.');
-        } else if (key === 'date') {
-          cleaned[key] = new Date().toISOString().split('T')[0];
-          continue;
         } else {
           cleaned[key] = '';
-          continue;
         }
-      }
-
-      const sanitizedVal = sanitizeForFirestore(cleanedVal);
-
-      // Prevent empty IDs, empty userId, and empty dates
-      if (key === 'id' && (sanitizedVal === '' || sanitizedVal === null || sanitizedVal === undefined)) {
-        cleaned[key] = Math.random().toString(36).substring(2, 9);
-      } else if (key === 'userId' && (sanitizedVal === '' || sanitizedVal === null || sanitizedVal === undefined)) {
-        throw new Error('UserId is required for database operations.');
-      } else if (key === 'date' && (sanitizedVal === '' || sanitizedVal === null || sanitizedVal === undefined)) {
-        cleaned[key] = new Date().toISOString().split('T')[0];
       } else {
-        cleaned[key] = sanitizedVal;
+        cleaned[key] = sanitizeForFirestore(val);
       }
     }
     return cleaned;
@@ -504,9 +484,6 @@ export const databaseService = {
 
   // --- BODY MEASUREMENTS ---
   async saveBodyMeasurement(measurement: BodyMeasurement, userId: string): Promise<void> {
-    if (!userId || userId.trim() === '') {
-      throw new Error('Kullanıcı kimliği (userId) eksik. Vücut ölçümü kaydedilemiyor.');
-    }
     const measurementId = measurement.id || Math.random().toString(36).substring(2, 9);
     const path = `bodyMeasurements/${measurementId}`;
     const cleanEntry = {
@@ -1117,9 +1094,6 @@ export const databaseService = {
 
   // --- GENERATED TRAINING PROGRAMS ---
   async saveGeneratedTrainingProgram(program: GeneratedTrainingProgram): Promise<void> {
-    if (!program || !program.userId || program.userId.trim() === '') {
-      throw new Error('Kullanıcı kimliği (userId) eksik. Program kaydedilemiyor.');
-    }
     const id = program.id || Math.random().toString(36).substring(2, 9);
     const path = `generatedTrainingPrograms/${id}`;
     const clean = {
@@ -1180,9 +1154,6 @@ export const databaseService = {
 
   // --- TRAINING CALENDAR ENTRIES ---
   async saveTrainingCalendarEntry(entry: TrainingCalendarEntry): Promise<void> {
-    if (!entry || !entry.userId || entry.userId.trim() === '') {
-      throw new Error('Kullanıcı kimliği (userId) eksik. Takvim kaydı kaydedilemiyor.');
-    }
     const id = entry.id || Math.random().toString(36).substring(2, 9);
     const path = `trainingCalendarEntries/${id}`;
     const clean = {
@@ -1224,9 +1195,6 @@ export const databaseService = {
 
   // --- WORKOUT SET ENTRIES ---
   async saveWorkoutSetEntry(entry: WorkoutSetEntry): Promise<void> {
-    if (!entry || !entry.userId || entry.userId.trim() === '') {
-      throw new Error('Kullanıcı kimliği (userId) eksik. Antrenman seti kaydedilemiyor.');
-    }
     const id = entry.id || Math.random().toString(36).substring(2, 9);
     const path = `workoutSetEntries/${id}`;
     const clean = {
@@ -1267,9 +1235,6 @@ export const databaseService = {
 
   // --- PERSONAL RECORDS ---
   async savePersonalRecord(record: PersonalRecord): Promise<void> {
-    if (!record || !record.userId || record.userId.trim() === '') {
-      throw new Error('Kullanıcı kimliği (userId) eksik. PR kaydı kaydedilemiyor.');
-    }
     const id = record.id || Math.random().toString(36).substring(2, 9);
     const path = `personalRecords/${id}`;
     const clean = {
@@ -1301,9 +1266,6 @@ export const databaseService = {
 
   // --- PROGRESS PHOTOS ---
   async saveProgressPhoto(photo: ProgressPhoto): Promise<void> {
-    if (!photo || !photo.userId || photo.userId.trim() === '') {
-      throw new Error('Kullanıcı kimliği (userId) eksik. Gelişim fotoğrafı kaydedilemiyor.');
-    }
     const id = photo.id || Math.random().toString(36).substring(2, 9);
     const path = `progressPhotos/${id}`;
     const clean = {
@@ -1344,9 +1306,6 @@ export const databaseService = {
 
   // --- RECOVERY ENTRIES ---
   async saveRecoveryEntry(entry: RecoveryEntry): Promise<void> {
-    if (!entry || !entry.userId || entry.userId.trim() === '') {
-      throw new Error('Kullanıcı kimliği (userId) eksik. Toparlanma verisi kaydedilemiyor.');
-    }
     const id = `${entry.userId}_${entry.date}`;
     const path = `recoveryEntries/${id}`;
     const clean = {
@@ -1379,9 +1338,6 @@ export const databaseService = {
 
   // --- DELOAD SUGGESTIONS ---
   async saveDeloadSuggestion(suggestion: DeloadSuggestion): Promise<void> {
-    if (!suggestion || !suggestion.userId || suggestion.userId.trim() === '') {
-      throw new Error('Kullanıcı kimliği (userId) eksik. Deload önerisi kaydedilemiyor.');
-    }
     const id = suggestion.id || Math.random().toString(36).substring(2, 9);
     const path = `deloadSuggestions/${id}`;
     const clean = {
@@ -1739,132 +1695,6 @@ export const databaseService = {
       await updateDoc(doc(db, 'deloadSuggestions', id), { status });
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `deloadSuggestions/${id}`);
-    }
-  },
-
-  async generateCalendarFromProgram(userId: string, program: GeneratedTrainingProgram, startDateStr: string): Promise<void> {
-    if (!userId || userId.trim() === '') {
-      throw new Error('Kullanıcı kimliği (userId) eksik. Takvim oluşturulamıyor.');
-    }
-    try {
-      const q = query(collection(db, 'trainingCalendarEntries'), where('userId', '==', userId), where('programId', '==', program.id));
-      const snap = await getDocs(q);
-      for (const docSnap of snap.docs) {
-        await deleteDoc(docSnap.ref);
-      }
-
-      const [startYear, startMonth, startDay] = startDateStr.split('-').map(Number);
-      const start = new Date(startYear, startMonth - 1, startDay);
-
-      const startDayOfWeek = start.getDay(); // 0 is Sunday, 1 is Monday, ..., 6 is Saturday
-      const daysToSubtract = startDayOfWeek === 0 ? 6 : startDayOfWeek - 1; // Days back to Monday
-      const mondayOfStartWeek = new Date(start);
-      mondayOfStartWeek.setDate(start.getDate() - daysToSubtract);
-
-      const weeklyDays = program.weeklyDays || 3;
-      const durationWeeks = program.durationWeeks || 4;
-
-      const workoutDayIndices = 
-        weeklyDays === 1 ? [0] :
-        weeklyDays === 2 ? [1, 3] :
-        weeklyDays === 3 ? [0, 2, 4] :
-        weeklyDays === 4 ? [0, 1, 3, 4] :
-        weeklyDays === 5 ? [0, 1, 2, 4, 5] :
-        weeklyDays === 6 ? [0, 1, 2, 3, 4, 5] :
-        [0, 1, 2, 3, 4, 5, 6];
-
-      let sessionIndex = 0;
-      const sessions = program.sessions || [];
-
-      for (let w = 0; w < durationWeeks; w++) {
-        for (let d = 0; d < 7; d++) {
-          const currentDate = new Date(mondayOfStartWeek);
-          currentDate.setDate(mondayOfStartWeek.getDate() + (w * 7 + d));
-          const dateStr = currentDate.toISOString().split('T')[0];
-
-          const isWorkout = workoutDayIndices.includes(d);
-          let sessionName = 'Dinlenme Günü';
-          let status: 'planned' | 'rest_day' = 'rest_day';
-
-          if (isWorkout && sessions.length > 0) {
-            const session = sessions[sessionIndex % sessions.length];
-            sessionName = session.name;
-            status = 'planned';
-            sessionIndex++;
-          }
-
-          const entry: TrainingCalendarEntry = {
-            id: `${program.id}_w${w}_d${d}`,
-            userId,
-            programId: program.id,
-            date: dateStr,
-            sessionName,
-            status,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          };
-
-          await setDoc(doc(db, 'trainingCalendarEntries', entry.id), sanitizeForFirestore(entry), { merge: true });
-        }
-      }
-    } catch (error) {
-      console.error("generateCalendarFromProgram failed:", error);
-      throw error;
-    }
-  },
-
-  async markWorkoutCompleted(entryId: string): Promise<void> {
-    try {
-      await updateDoc(doc(db, 'trainingCalendarEntries', entryId), {
-        status: 'completed',
-        updatedAt: new Date().toISOString()
-      });
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `trainingCalendarEntries/${entryId}`);
-    }
-  },
-
-  async markWorkoutMissed(entryId: string): Promise<void> {
-    try {
-      await updateDoc(doc(db, 'trainingCalendarEntries', entryId), {
-        status: 'missed',
-        updatedAt: new Date().toISOString()
-      });
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `trainingCalendarEntries/${entryId}`);
-    }
-  },
-
-  async rescheduleWorkout(entryId: string, newDate: string): Promise<void> {
-    try {
-      await updateDoc(doc(db, 'trainingCalendarEntries', entryId), {
-        date: newDate,
-        updatedAt: new Date().toISOString()
-      });
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `trainingCalendarEntries/${entryId}`);
-    }
-  },
-
-  async checkAndSavePersonalRecords(userId: string, setEntries: WorkoutSetEntry[], workoutId?: string): Promise<PersonalRecord[]> {
-    try {
-      const q = query(collection(db, 'personalRecords'), where('userId', '==', userId));
-      const snap = await getDocs(q);
-      const existingPRs: PersonalRecord[] = [];
-      snap.forEach(d => {
-        existingPRs.push({ id: d.id, ...d.data() } as PersonalRecord);
-      });
-
-      const newPRs = checkForNewPRs(userId, existingPRs, setEntries, workoutId);
-
-      for (const pr of newPRs) {
-        await setDoc(doc(db, 'personalRecords', pr.id), sanitizeForFirestore(pr));
-      }
-
-      return newPRs;
-    } catch (error) {
-      console.error("checkAndSavePersonalRecords failed:", error);
-      return [];
     }
   },
 };
