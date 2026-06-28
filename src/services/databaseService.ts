@@ -15,6 +15,7 @@ import {
   where,
   orderBy,
   onSnapshot,
+  deleteField,
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
 import {
@@ -26,7 +27,19 @@ import {
   WaterEntry,
   WorkoutSet,
   Exercise,
+  FavoriteMeal,
+  NutritionCoachNote,
+  NutritionDayStatus,
+  NutritionGoals,
+  GeneratedTrainingProgram,
+  TrainingCalendarEntry,
+  WorkoutSetEntry,
+  PersonalRecord,
+  RecoveryEntry,
+  DeloadSuggestion,
+  ProgressPhoto,
 } from '../types';
+import { calculateEstimatedOneRepMax, checkForNewPRs } from '../utils/prCalculations';
 
 // --- HELPERS FOR DATA VALIDATION & COMPATIBILITY ---
 export function sanitizeForFirestore(value: any): any {
@@ -46,7 +59,7 @@ export function sanitizeForFirestore(value: any): any {
     return value.toISOString();
   }
   if (Array.isArray(value)) {
-    return value.map(sanitizeForFirestore);
+    return value.map(sanitizeForFirestore).filter(v => v !== undefined);
   }
   if (typeof value === 'object') {
     if (value.constructor && value.constructor.name !== 'Object' && value.constructor.name !== 'Array') {
@@ -54,23 +67,43 @@ export function sanitizeForFirestore(value: any): any {
     }
     const cleaned: any = {};
     for (const [key, val] of Object.entries(value)) {
-      if (val === undefined) {
+      let cleanedVal = val;
+      if (val === undefined || val === null) {
         if (['calories', 'protein', 'carbs', 'fat', 'weight', 'amountMl', 'duration', 'caloriesBurned', 'waist', 'chest', 'arm', 'shoulder', 'hip', 'leg', 'neck', 'bodyFat'].includes(key)) {
-          // Keep body measurements null if they are completely unentered, or 0 if we want default.
-          // Let's use null for body measurements to distinguish between empty and 0cm pazu or waist!
-          // Yes! If they are body measurements, let's return null if not defined, otherwise 0 for calories, carbs, etc.
           if (['waist', 'chest', 'arm', 'shoulder', 'hip', 'leg', 'neck', 'bodyFat'].includes(key)) {
             cleaned[key] = null;
           } else {
             cleaned[key] = 0;
           }
+          continue;
         } else if (['sets', 'exercises'].includes(key)) {
           cleaned[key] = [];
+          continue;
+        } else if (key === 'id') {
+          cleaned[key] = Math.random().toString(36).substring(2, 9);
+          continue;
+        } else if (key === 'userId') {
+          throw new Error('UserId is required for database operations.');
+        } else if (key === 'date') {
+          cleaned[key] = new Date().toISOString().split('T')[0];
+          continue;
         } else {
           cleaned[key] = '';
+          continue;
         }
+      }
+
+      const sanitizedVal = sanitizeForFirestore(cleanedVal);
+
+      // Prevent empty IDs, empty userId, and empty dates
+      if (key === 'id' && (sanitizedVal === '' || sanitizedVal === null || sanitizedVal === undefined)) {
+        cleaned[key] = Math.random().toString(36).substring(2, 9);
+      } else if (key === 'userId' && (sanitizedVal === '' || sanitizedVal === null || sanitizedVal === undefined)) {
+        throw new Error('UserId is required for database operations.');
+      } else if (key === 'date' && (sanitizedVal === '' || sanitizedVal === null || sanitizedVal === undefined)) {
+        cleaned[key] = new Date().toISOString().split('T')[0];
       } else {
-        cleaned[key] = sanitizeForFirestore(val);
+        cleaned[key] = sanitizedVal;
       }
     }
     return cleaned;
@@ -181,6 +214,7 @@ export function normalizeMeal(meal: any): MealEntry {
 
   return {
     id: meal.id || Math.random().toString(36).substring(2, 9),
+    userId: meal.userId || '',
     date: meal.date || new Date().toISOString().split('T')[0],
     mealType: meal.mealType || 'Ara Öğün',
     foodName: meal.foodName || 'Öğün',
@@ -331,6 +365,44 @@ export const databaseService = {
     const sanitized = sanitizeForFirestore(cleanWorkout);
     try {
       await setDoc(doc(db, 'workouts', cleanWorkout.id), sanitized, { merge: true });
+
+      // 1. Delete previous workoutSetEntries for this workoutId
+      const qSets = query(collection(db, 'workoutSetEntries'), where('workoutId', '==', cleanWorkout.id));
+      const snapSets = await getDocs(qSets);
+      for (const d of snapSets.docs) {
+        await deleteDoc(d.ref);
+      }
+
+      // 2. Save new workoutSetEntries
+      if (Array.isArray(cleanWorkout.exercises)) {
+        for (const ex of cleanWorkout.exercises) {
+          if (Array.isArray(ex.sets)) {
+            for (let i = 0; i < ex.sets.length; i++) {
+              const set = ex.sets[i];
+              const setEntryId = `${cleanWorkout.id}_${ex.id}_${i}`;
+              const setEntry: WorkoutSetEntry = {
+                id: setEntryId,
+                userId,
+                workoutId: cleanWorkout.id,
+                exerciseId: ex.id || 'unknown_exercise',
+                exerciseName: ex.name,
+                setNumber: set.setNumber || (i + 1),
+                weight: Number(set.weight) || 0,
+                reps: Number(set.reps) || 0,
+                isCompleted: true,
+                isWarmup: set.notes?.toLowerCase().includes('warmup') || set.notes?.toLowerCase().includes('ısınma') || false,
+                date: cleanWorkout.date,
+                createdAt: new Date().toISOString()
+              };
+              await setDoc(doc(db, 'workoutSetEntries', setEntryId), sanitizeForFirestore(setEntry), { merge: true });
+            }
+          }
+        }
+      }
+
+      // 3. Recalculate personal records for the user
+      await this.recalculatePersonalRecords(userId);
+
     } catch (error) {
       console.error("Workout save error:", error, "Firestore sanitized payload:", JSON.stringify(sanitized));
       handleFirestoreError(error, OperationType.WRITE, path);
@@ -340,7 +412,23 @@ export const databaseService = {
   async deleteWorkout(workoutId: string): Promise<void> {
     const path = `workouts/${workoutId}`;
     try {
+      // Get userId from the workout document before deleting it so we can recalculate PRs
+      const snap = await getDoc(doc(db, 'workouts', workoutId));
+      const userId = snap.exists() ? snap.data().userId : null;
+
       await deleteDoc(doc(db, 'workouts', workoutId));
+
+      // Delete corresponding workoutSetEntries
+      const qSets = query(collection(db, 'workoutSetEntries'), where('workoutId', '==', workoutId));
+      const snapSets = await getDocs(qSets);
+      for (const d of snapSets.docs) {
+        await deleteDoc(d.ref);
+      }
+
+      // Recalculate PRs if userId is available
+      if (userId) {
+        await this.recalculatePersonalRecords(userId);
+      }
     } catch (error) {
       console.error("Firestore deleteWorkout fail details:", error, "Id was:", workoutId);
       handleFirestoreError(error, OperationType.DELETE, path);
@@ -416,20 +504,35 @@ export const databaseService = {
 
   // --- BODY MEASUREMENTS ---
   async saveBodyMeasurement(measurement: BodyMeasurement, userId: string): Promise<void> {
+    if (!userId || userId.trim() === '') {
+      throw new Error('Kullanıcı kimliği (userId) eksik. Vücut ölçümü kaydedilemiyor.');
+    }
     const measurementId = measurement.id || Math.random().toString(36).substring(2, 9);
     const path = `bodyMeasurements/${measurementId}`;
     const cleanEntry = {
       id: measurementId,
       userId,
       date: measurement.date || new Date().toISOString().split('T')[0],
+      weight: measurement.weight !== undefined && measurement.weight !== null ? Number(measurement.weight) : null,
       waist: measurement.waist !== undefined && measurement.waist !== null ? Number(measurement.waist) : null,
       chest: measurement.chest !== undefined && measurement.chest !== null ? Number(measurement.chest) : null,
       arm: measurement.arm !== undefined && measurement.arm !== null ? Number(measurement.arm) : null,
       shoulder: measurement.shoulder !== undefined && measurement.shoulder !== null ? Number(measurement.shoulder) : null,
+      shoulders: measurement.shoulders !== undefined && measurement.shoulders !== null ? Number(measurement.shoulders) : null,
       hip: measurement.hip !== undefined && measurement.hip !== null ? Number(measurement.hip) : null,
       leg: measurement.leg !== undefined && measurement.leg !== null ? Number(measurement.leg) : null,
+      rightArm: measurement.rightArm !== undefined && measurement.rightArm !== null ? Number(measurement.rightArm) : null,
+      leftArm: measurement.leftArm !== undefined && measurement.leftArm !== null ? Number(measurement.leftArm) : null,
+      rightForearm: measurement.rightForearm !== undefined && measurement.rightForearm !== null ? Number(measurement.rightForearm) : null,
+      leftForearm: measurement.leftForearm !== undefined && measurement.leftForearm !== null ? Number(measurement.leftForearm) : null,
+      rightThigh: measurement.rightThigh !== undefined && measurement.rightThigh !== null ? Number(measurement.rightThigh) : null,
+      leftThigh: measurement.leftThigh !== undefined && measurement.leftThigh !== null ? Number(measurement.leftThigh) : null,
+      rightCalf: measurement.rightCalf !== undefined && measurement.rightCalf !== null ? Number(measurement.rightCalf) : null,
+      leftCalf: measurement.leftCalf !== undefined && measurement.leftCalf !== null ? Number(measurement.leftCalf) : null,
       neck: measurement.neck !== undefined && measurement.neck !== null ? Number(measurement.neck) : null,
       bodyFat: measurement.bodyFat !== undefined && measurement.bodyFat !== null ? Number(measurement.bodyFat) : null,
+      bodyFatPercentage: measurement.bodyFatPercentage !== undefined && measurement.bodyFatPercentage !== null ? Number(measurement.bodyFatPercentage) : null,
+      muscleMass: measurement.muscleMass !== undefined && measurement.muscleMass !== null ? Number(measurement.muscleMass) : null,
       notes: measurement.notes || '',
       createdAt: measurement.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -824,5 +927,944 @@ export const databaseService = {
         handleFirestoreError(err, OperationType.LIST, 'coachGoals');
       }
     });
+  },
+
+  // --- NUTRITION GOALS ---
+  async updateNutritionGoals(userId: string, goals: NutritionGoals): Promise<void> {
+    const path = `users/${userId}`;
+    try {
+      await updateDoc(doc(db, 'users', userId), {
+        nutritionGoals: sanitizeForFirestore(goals)
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+    }
+  },
+
+  async saveCoachAthleteGoals(athleteId: string, coachId: string, goals: NutritionGoals): Promise<void> {
+    const path = `users/${athleteId}`;
+    try {
+      await updateDoc(doc(db, 'users', athleteId), {
+        nutritionGoals: sanitizeForFirestore({
+          ...goals,
+          setByCoachId: coachId,
+          updatedAt: new Date().toISOString()
+        })
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+    }
+  },
+
+  async removeCoachAthleteGoals(athleteId: string, coachId?: string): Promise<void> {
+    const path = `users/${athleteId}`;
+    try {
+      if (coachId) {
+        const snap = await getDoc(doc(db, 'users', athleteId));
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.nutritionGoals?.setByCoachId && data.nutritionGoals.setByCoachId !== coachId) {
+            // Yalnızca setByCoachId mevcut koça aitse koç kilidini kaldır.
+            return;
+          }
+        }
+      }
+      await updateDoc(doc(db, 'users', athleteId), {
+        'nutritionGoals.setByCoachId': deleteField(),
+        'nutritionGoals.updatedAt': new Date().toISOString()
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+    }
+  },
+
+  // --- FAVORITE MEALS ---
+  async saveFavoriteMeal(meal: FavoriteMeal): Promise<void> {
+    const id = meal.id || Math.random().toString(36).substring(2, 9);
+    const path = `favoriteMeals/${id}`;
+    const clean = {
+      ...meal,
+      id,
+      createdAt: meal.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    try {
+      await setDoc(doc(db, 'favoriteMeals', id), sanitizeForFirestore(clean), { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+    }
+  },
+
+  async deleteFavoriteMeal(id: string): Promise<void> {
+    const path = `favoriteMeals/${id}`;
+    try {
+      await deleteDoc(doc(db, 'favoriteMeals', id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, path);
+    }
+  },
+
+  listenFavoriteMeals(userId: string, callback: (meals: FavoriteMeal[]) => void) {
+    const q = query(collection(db, 'favoriteMeals'), where('userId', '==', userId));
+    return onSnapshot(q, (snap) => {
+      const list: FavoriteMeal[] = [];
+      snap.forEach((d) => {
+        list.push({ id: d.id, ...d.data() } as FavoriteMeal);
+      });
+      list.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+      callback(list);
+    }, (err) => {
+      console.error("listenFavoriteMeals error", err);
+      callback([]);
+    });
+  },
+
+  // --- WATER ENTRIES REDESIGNED ---
+  async saveWaterEntry(entry: WaterEntry): Promise<void> {
+    const id = entry.id || Math.random().toString(36).substring(2, 9);
+    const path = `waterEntries/${id}`;
+    const clean = {
+      ...entry,
+      id,
+      createdAt: entry.createdAt || new Date().toISOString()
+    };
+    try {
+      await setDoc(doc(db, 'waterEntries', id), sanitizeForFirestore(clean), { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+    }
+  },
+
+  async deleteWaterEntry(id: string): Promise<void> {
+    const path = `waterEntries/${id}`;
+    try {
+      await deleteDoc(doc(db, 'waterEntries', id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, path);
+    }
+  },
+
+  // --- NUTRITION COACH NOTES ---
+  async saveNutritionCoachNote(note: NutritionCoachNote): Promise<void> {
+    const id = note.id || Math.random().toString(36).substring(2, 9);
+    const path = `nutritionCoachNotes/${id}`;
+    const clean = {
+      ...note,
+      id,
+      createdAt: note.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    try {
+      await setDoc(doc(db, 'nutritionCoachNotes', id), sanitizeForFirestore(clean), { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+    }
+  },
+
+  async deleteNutritionCoachNote(id: string): Promise<void> {
+    const path = `nutritionCoachNotes/${id}`;
+    try {
+      await deleteDoc(doc(db, 'nutritionCoachNotes', id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, path);
+    }
+  },
+
+  listenNutritionCoachNotes(athleteId: string, callback: (notes: NutritionCoachNote[]) => void) {
+    const q = query(collection(db, 'nutritionCoachNotes'), where('athleteId', '==', athleteId));
+    return onSnapshot(q, (snap) => {
+      const list: NutritionCoachNote[] = [];
+      snap.forEach((d) => {
+        list.push({ id: d.id, ...d.data() } as NutritionCoachNote);
+      });
+      list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      callback(list);
+    }, (err) => {
+      console.error("listenNutritionCoachNotes error", err);
+      callback([]);
+    });
+  },
+
+  // --- NUTRITION DAY STATUS ---
+  async saveNutritionDayStatus(status: NutritionDayStatus): Promise<void> {
+    const id = `${status.userId}_${status.date}`;
+    const path = `nutritionDayStatuses/${id}`;
+    const clean = {
+      ...status,
+      id,
+      completedAt: status.completedAt || new Date().toISOString()
+    };
+    try {
+      await setDoc(doc(db, 'nutritionDayStatuses', id), sanitizeForFirestore(clean), { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+    }
+  },
+
+  listenNutritionDayStatuses(userId: string, callback: (statuses: NutritionDayStatus[]) => void) {
+    const q = query(collection(db, 'nutritionDayStatuses'), where('userId', '==', userId));
+    return onSnapshot(q, (snap) => {
+      const list: NutritionDayStatus[] = [];
+      snap.forEach((d) => {
+        list.push({ id: d.id, ...d.data() } as NutritionDayStatus);
+      });
+      callback(list);
+    }, (err) => {
+      console.error("listenNutritionDayStatuses error", err);
+      callback([]);
+    });
+  },
+
+  // --- GENERATED TRAINING PROGRAMS ---
+  async saveGeneratedTrainingProgram(program: GeneratedTrainingProgram): Promise<void> {
+    if (!program || !program.userId || program.userId.trim() === '') {
+      throw new Error('Kullanıcı kimliği (userId) eksik. Program kaydedilemiyor.');
+    }
+    const id = program.id || Math.random().toString(36).substring(2, 9);
+    const path = `generatedTrainingPrograms/${id}`;
+    const clean = {
+      ...program,
+      id,
+      createdAt: program.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    try {
+      await setDoc(doc(db, 'generatedTrainingPrograms', id), sanitizeForFirestore(clean), { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+    }
+  },
+
+  async deleteGeneratedTrainingProgram(id: string): Promise<void> {
+    const path = `generatedTrainingPrograms/${id}`;
+    try {
+      await deleteDoc(doc(db, 'generatedTrainingPrograms', id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, path);
+    }
+  },
+
+  listenGeneratedTrainingPrograms(userId: string, callback: (programs: GeneratedTrainingProgram[]) => void) {
+    const q = query(collection(db, 'generatedTrainingPrograms'), where('userId', '==', userId));
+    return onSnapshot(q, (snap) => {
+      const list: GeneratedTrainingProgram[] = [];
+      snap.forEach((d) => {
+        list.push({ id: d.id, ...d.data() } as GeneratedTrainingProgram);
+      });
+      list.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+      callback(list);
+    }, (err) => {
+      console.error("listenGeneratedTrainingPrograms error", err);
+      callback([]);
+    });
+  },
+
+  async setActiveTrainingProgram(userId: string, programId: string): Promise<void> {
+    const path = `generatedTrainingPrograms`;
+    try {
+      const q = query(collection(db, 'generatedTrainingPrograms'), where('userId', '==', userId));
+      const snap = await getDocs(q);
+      for (const d of snap.docs) {
+        const data = d.data();
+        const docRef = doc(db, 'generatedTrainingPrograms', d.id);
+        if (d.id === programId) {
+          await updateDoc(docRef, { isActive: true, updatedAt: new Date().toISOString() });
+        } else if (data.isActive) {
+          await updateDoc(docRef, { isActive: false, updatedAt: new Date().toISOString() });
+        }
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+    }
+  },
+
+  // --- TRAINING CALENDAR ENTRIES ---
+  async saveTrainingCalendarEntry(entry: TrainingCalendarEntry): Promise<void> {
+    if (!entry || !entry.userId || entry.userId.trim() === '') {
+      throw new Error('Kullanıcı kimliği (userId) eksik. Takvim kaydı kaydedilemiyor.');
+    }
+    const id = entry.id || Math.random().toString(36).substring(2, 9);
+    const path = `trainingCalendarEntries/${id}`;
+    const clean = {
+      ...entry,
+      id,
+      createdAt: entry.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    try {
+      await setDoc(doc(db, 'trainingCalendarEntries', id), sanitizeForFirestore(clean), { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+    }
+  },
+
+  async deleteTrainingCalendarEntry(id: string): Promise<void> {
+    const path = `trainingCalendarEntries/${id}`;
+    try {
+      await deleteDoc(doc(db, 'trainingCalendarEntries', id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, path);
+    }
+  },
+
+  listenTrainingCalendarEntries(userId: string, callback: (entries: TrainingCalendarEntry[]) => void) {
+    const q = query(collection(db, 'trainingCalendarEntries'), where('userId', '==', userId));
+    return onSnapshot(q, (snap) => {
+      const list: TrainingCalendarEntry[] = [];
+      snap.forEach((d) => {
+        list.push({ id: d.id, ...d.data() } as TrainingCalendarEntry);
+      });
+      list.sort((a, b) => a.date.localeCompare(b.date));
+      callback(list);
+    }, (err) => {
+      console.error("listenTrainingCalendarEntries error", err);
+      callback([]);
+    });
+  },
+
+  // --- WORKOUT SET ENTRIES ---
+  async saveWorkoutSetEntry(entry: WorkoutSetEntry): Promise<void> {
+    if (!entry || !entry.userId || entry.userId.trim() === '') {
+      throw new Error('Kullanıcı kimliği (userId) eksik. Antrenman seti kaydedilemiyor.');
+    }
+    const id = entry.id || Math.random().toString(36).substring(2, 9);
+    const path = `workoutSetEntries/${id}`;
+    const clean = {
+      ...entry,
+      id,
+      createdAt: entry.createdAt || new Date().toISOString()
+    };
+    try {
+      await setDoc(doc(db, 'workoutSetEntries', id), sanitizeForFirestore(clean), { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+    }
+  },
+
+  async deleteWorkoutSetEntry(id: string): Promise<void> {
+    const path = `workoutSetEntries/${id}`;
+    try {
+      await deleteDoc(doc(db, 'workoutSetEntries', id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, path);
+    }
+  },
+
+  listenWorkoutSetEntries(userId: string, callback: (entries: WorkoutSetEntry[]) => void) {
+    const q = query(collection(db, 'workoutSetEntries'), where('userId', '==', userId));
+    return onSnapshot(q, (snap) => {
+      const list: WorkoutSetEntry[] = [];
+      snap.forEach((d) => {
+        list.push({ id: d.id, ...d.data() } as WorkoutSetEntry);
+      });
+      list.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      callback(list);
+    }, (err) => {
+      console.error("listenWorkoutSetEntries error", err);
+      callback([]);
+    });
+  },
+
+  // --- PERSONAL RECORDS ---
+  async savePersonalRecord(record: PersonalRecord): Promise<void> {
+    if (!record || !record.userId || record.userId.trim() === '') {
+      throw new Error('Kullanıcı kimliği (userId) eksik. PR kaydı kaydedilemiyor.');
+    }
+    const id = record.id || Math.random().toString(36).substring(2, 9);
+    const path = `personalRecords/${id}`;
+    const clean = {
+      ...record,
+      id,
+      createdAt: record.createdAt || new Date().toISOString()
+    };
+    try {
+      await setDoc(doc(db, 'personalRecords', id), sanitizeForFirestore(clean), { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+    }
+  },
+
+  listenPersonalRecords(userId: string, callback: (records: PersonalRecord[]) => void) {
+    const q = query(collection(db, 'personalRecords'), where('userId', '==', userId));
+    return onSnapshot(q, (snap) => {
+      const list: PersonalRecord[] = [];
+      snap.forEach((d) => {
+        list.push({ id: d.id, ...d.data() } as PersonalRecord);
+      });
+      list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      callback(list);
+    }, (err) => {
+      console.error("listenPersonalRecords error", err);
+      callback([]);
+    });
+  },
+
+  // --- PROGRESS PHOTOS ---
+  async saveProgressPhoto(photo: ProgressPhoto): Promise<void> {
+    if (!photo || !photo.userId || photo.userId.trim() === '') {
+      throw new Error('Kullanıcı kimliği (userId) eksik. Gelişim fotoğrafı kaydedilemiyor.');
+    }
+    const id = photo.id || Math.random().toString(36).substring(2, 9);
+    const path = `progressPhotos/${id}`;
+    const clean = {
+      ...photo,
+      id,
+      createdAt: photo.createdAt || new Date().toISOString()
+    };
+    try {
+      await setDoc(doc(db, 'progressPhotos', id), sanitizeForFirestore(clean), { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+    }
+  },
+
+  async deleteProgressPhoto(id: string): Promise<void> {
+    const path = `progressPhotos/${id}`;
+    try {
+      await deleteDoc(doc(db, 'progressPhotos', id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, path);
+    }
+  },
+
+  listenProgressPhotos(userId: string, callback: (photos: ProgressPhoto[]) => void) {
+    const q = query(collection(db, 'progressPhotos'), where('userId', '==', userId));
+    return onSnapshot(q, (snap) => {
+      const list: ProgressPhoto[] = [];
+      snap.forEach((d) => {
+        list.push({ id: d.id, ...d.data() } as ProgressPhoto);
+      });
+      list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      callback(list);
+    }, (err) => {
+      console.error("listenProgressPhotos error", err);
+      callback([]);
+    });
+  },
+
+  // --- RECOVERY ENTRIES ---
+  async saveRecoveryEntry(entry: RecoveryEntry): Promise<void> {
+    if (!entry || !entry.userId || entry.userId.trim() === '') {
+      throw new Error('Kullanıcı kimliği (userId) eksik. Toparlanma verisi kaydedilemiyor.');
+    }
+    const id = `${entry.userId}_${entry.date}`;
+    const path = `recoveryEntries/${id}`;
+    const clean = {
+      ...entry,
+      id,
+      createdAt: entry.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    try {
+      await setDoc(doc(db, 'recoveryEntries', id), sanitizeForFirestore(clean), { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+    }
+  },
+
+  listenRecoveryEntries(userId: string, callback: (entries: RecoveryEntry[]) => void) {
+    const q = query(collection(db, 'recoveryEntries'), where('userId', '==', userId));
+    return onSnapshot(q, (snap) => {
+      const list: RecoveryEntry[] = [];
+      snap.forEach((d) => {
+        list.push({ id: d.id, ...d.data() } as RecoveryEntry);
+      });
+      list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      callback(list);
+    }, (err) => {
+      console.error("listenRecoveryEntries error", err);
+      callback([]);
+    });
+  },
+
+  // --- DELOAD SUGGESTIONS ---
+  async saveDeloadSuggestion(suggestion: DeloadSuggestion): Promise<void> {
+    if (!suggestion || !suggestion.userId || suggestion.userId.trim() === '') {
+      throw new Error('Kullanıcı kimliği (userId) eksik. Deload önerisi kaydedilemiyor.');
+    }
+    const id = suggestion.id || Math.random().toString(36).substring(2, 9);
+    const path = `deloadSuggestions/${id}`;
+    const clean = {
+      ...suggestion,
+      id,
+      createdAt: suggestion.createdAt || new Date().toISOString()
+    };
+    try {
+      await setDoc(doc(db, 'deloadSuggestions', id), sanitizeForFirestore(clean), { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+    }
+  },
+
+  listenDeloadSuggestions(userId: string, callback: (suggestions: DeloadSuggestion[]) => void) {
+    const q = query(collection(db, 'deloadSuggestions'), where('userId', '==', userId));
+    return onSnapshot(q, (snap) => {
+      const list: DeloadSuggestion[] = [];
+      snap.forEach((d) => {
+        list.push({ id: d.id, ...d.data() } as DeloadSuggestion);
+      });
+      list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      callback(list);
+    }, (err) => {
+      console.error("listenDeloadSuggestions error", err);
+      callback([]);
+    });
+  },
+
+  // --- FAVORITE EXERCISES ---
+  async saveFavoriteExercise(userId: string, exerciseId: string): Promise<void> {
+    const id = `${userId}_${exerciseId}`;
+    const path = `favoriteExercises/${id}`;
+    try {
+      await setDoc(doc(db, 'favoriteExercises', id), sanitizeForFirestore({ id, userId, exerciseId, createdAt: new Date().toISOString() }));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+    }
+  },
+
+  async removeFavoriteExercise(userId: string, exerciseId: string): Promise<void> {
+    const id = `${userId}_${exerciseId}`;
+    const path = `favoriteExercises/${id}`;
+    try {
+      await deleteDoc(doc(db, 'favoriteExercises', id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, path);
+    }
+  },
+
+  listenFavoriteExercises(userId: string, callback: (ids: string[]) => void) {
+    const q = query(collection(db, 'favoriteExercises'), where('userId', '==', userId));
+    return onSnapshot(q, (snap) => {
+      const list: string[] = [];
+      snap.forEach((d) => {
+        const data = d.data();
+        if (data.exerciseId) list.push(data.exerciseId);
+      });
+      callback(list);
+    }, (err) => {
+      console.error("listenFavoriteExercises error", err);
+      callback([]);
+    });
+  },
+
+  // --- COACH ATHLETE NOTES ---
+  async saveCoachAthleteNote(note: { id: string, coachId: string, athleteId: string, note: string, createdAt: string, updatedAt: string }): Promise<void> {
+    const id = note.id || Math.random().toString(36).substring(2, 9);
+    const path = `coachAthleteNotes/${id}`;
+    try {
+      await setDoc(doc(db, 'coachAthleteNotes', id), sanitizeForFirestore({ ...note, id }), { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+    }
+  },
+
+  listenCoachAthleteNotes(athleteId: string, callback: (notes: any[]) => void) {
+    const q = query(collection(db, 'coachAthleteNotes'), where('athleteId', '==', athleteId));
+    return onSnapshot(q, (snap) => {
+      const list: any[] = [];
+      snap.forEach((d) => {
+        list.push({ id: d.id, ...d.data() });
+      });
+      list.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+      callback(list);
+    }, (err) => {
+      console.error("listenCoachAthleteNotes error", err);
+      callback([]);
+    });
+  },
+
+  // --- COMPREHENSIVE TRAINING SERVICE ADAPTERS & ALIASES ---
+  createTrainingProgram: async function(program: GeneratedTrainingProgram): Promise<void> {
+    return this.saveGeneratedTrainingProgram(program);
+  },
+
+  updateTrainingProgram: async function(programId: string, updates: Partial<GeneratedTrainingProgram>): Promise<void> {
+    try {
+      await updateDoc(doc(db, 'generatedTrainingPrograms', programId), sanitizeForFirestore({ ...updates, updatedAt: new Date().toISOString() }));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `generatedTrainingPrograms/${programId}`);
+    }
+  },
+
+  deleteTrainingProgram: async function(id: string): Promise<void> {
+    return this.deleteGeneratedTrainingProgram(id);
+  },
+
+  listenTrainingPrograms: function(userId: string, callback: (programs: GeneratedTrainingProgram[]) => void) {
+    return this.listenGeneratedTrainingPrograms(userId, callback);
+  },
+
+  async getTrainingProgram(programId: string): Promise<GeneratedTrainingProgram | null> {
+    try {
+      const snap = await getDoc(doc(db, 'generatedTrainingPrograms', programId));
+      return snap.exists() ? { id: snap.id, ...snap.data() } as GeneratedTrainingProgram : null;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.GET, `generatedTrainingPrograms/${programId}`);
+      return null;
+    }
+  },
+
+  async archiveTrainingProgram(programId: string): Promise<void> {
+    try {
+      await updateDoc(doc(db, 'generatedTrainingPrograms', programId), { isActive: false, updatedAt: new Date().toISOString() });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `generatedTrainingPrograms/${programId}`);
+    }
+  },
+
+  createTrainingCalendarEntry: async function(entry: TrainingCalendarEntry): Promise<void> {
+    return this.saveTrainingCalendarEntry(entry);
+  },
+
+  async updateTrainingCalendarEntry(id: string, updates: Partial<TrainingCalendarEntry>): Promise<void> {
+    try {
+      await updateDoc(doc(db, 'trainingCalendarEntries', id), sanitizeForFirestore({ ...updates, updatedAt: new Date().toISOString() }));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `trainingCalendarEntries/${id}`);
+    }
+  },
+
+  async updateWorkoutSetEntry(id: string, updates: Partial<WorkoutSetEntry>): Promise<void> {
+    try {
+      await updateDoc(doc(db, 'workoutSetEntries', id), sanitizeForFirestore(updates));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `workoutSetEntries/${id}`);
+    }
+  },
+
+  async getExerciseHistory(userId: string, exerciseId: string): Promise<WorkoutSetEntry[]> {
+    try {
+      const q = query(
+        collection(db, 'workoutSetEntries'),
+        where('userId', '==', userId),
+        where('exerciseId', '==', exerciseId)
+      );
+      const snap = await getDocs(q);
+      const list: WorkoutSetEntry[] = [];
+      snap.forEach(d => {
+        list.push({ id: d.id, ...d.data() } as WorkoutSetEntry);
+      });
+      return list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    } catch (error) {
+      handleFirestoreError(error, OperationType.GET, `workoutSetEntries`);
+      return [];
+    }
+  },
+
+  async getLastExercisePerformance(userId: string, exerciseId: string): Promise<WorkoutSetEntry[]> {
+    const history = await this.getExerciseHistory(userId, exerciseId);
+    if (history.length === 0) return [];
+    const latestDate = history[0].date;
+    return history.filter(h => h.date === latestDate);
+  },
+
+  async getExercisePersonalRecords(userId: string, exerciseId: string): Promise<PersonalRecord[]> {
+    try {
+      const q = query(
+        collection(db, 'personalRecords'),
+        where('userId', '==', userId),
+        where('exerciseId', '==', exerciseId)
+      );
+      const snap = await getDocs(q);
+      const list: PersonalRecord[] = [];
+      snap.forEach(d => {
+        list.push({ id: d.id, ...d.data() } as PersonalRecord);
+      });
+      return list;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.GET, `personalRecords`);
+      return [];
+    }
+  },
+
+  async recalculatePersonalRecords(userId: string): Promise<void> {
+    try {
+      // 1. Fetch and delete existing personal records of the user
+      const prColl = collection(db, 'personalRecords');
+      const qPr = query(prColl, where('userId', '==', userId));
+      const prSnap = await getDocs(qPr);
+      for (const docSnap of prSnap.docs) {
+        await deleteDoc(docSnap.ref);
+      }
+
+      // 2. Fetch all completed non-warmup sets of the user
+      const setColl = collection(db, 'workoutSetEntries');
+      const qSets = query(setColl, where('userId', '==', userId));
+      const setSnap = await getDocs(qSets);
+      
+      const setsList: WorkoutSetEntry[] = [];
+      setSnap.forEach(d => {
+        const data = d.data() as any;
+        if (data.isCompleted && !data.isWarmup) {
+          setsList.push(data);
+        }
+      });
+
+      if (setsList.length === 0) return;
+
+      // 3. Find the maximum values for each exercise and recordType
+      const maxes: Record<string, {
+        max_weight?: { val: number; set: WorkoutSetEntry };
+        max_reps?: { val: number; set: WorkoutSetEntry };
+        max_volume?: { val: number; set: WorkoutSetEntry };
+        estimated_1rm?: { val: number; set: WorkoutSetEntry };
+      }> = {};
+
+      for (const s of setsList) {
+        const exId = s.exerciseId;
+        if (!maxes[exId]) {
+          maxes[exId] = {};
+        }
+        const current = maxes[exId];
+
+        // max_weight
+        if (!current.max_weight || s.weight > current.max_weight.val) {
+          current.max_weight = { val: s.weight, set: s };
+        }
+        // max_reps
+        if (!current.max_reps || s.reps > current.max_reps.val) {
+          current.max_reps = { val: s.reps, set: s };
+        }
+        // max_volume
+        const vol = s.weight * s.reps;
+        if (!current.max_volume || vol > current.max_volume.val) {
+          current.max_volume = { val: vol, set: s };
+        }
+        // estimated_1rm
+        const oneRepMax = calculateEstimatedOneRepMax(s.weight, s.reps);
+        if (!current.estimated_1rm || oneRepMax > current.estimated_1rm.val) {
+          current.estimated_1rm = { val: oneRepMax, set: s };
+        }
+      }
+
+      // 4. Save new personal records
+      for (const [exId, m] of Object.entries(maxes)) {
+        const sFirst = m.max_weight?.set || m.max_reps?.set || m.max_volume?.set || m.estimated_1rm?.set;
+        if (!sFirst) continue;
+        const exName = sFirst.exerciseName;
+
+        const createRecord = async (type: 'max_weight' | 'max_reps' | 'max_volume' | 'estimated_1rm', val: number, refSet: WorkoutSetEntry) => {
+          const pr: PersonalRecord = {
+            id: Math.random().toString(36).substring(2, 9),
+            userId,
+            exerciseId: exId,
+            exerciseName: exName,
+            recordType: type,
+            value: Math.round(val * 100) / 100,
+            date: refSet.date,
+            workoutId: refSet.workoutId,
+            notes: '',
+            createdAt: new Date().toISOString()
+          };
+          if (type === 'max_weight') pr.weight = val;
+          if (type === 'max_reps') pr.reps = val;
+          if (type === 'max_volume') pr.volume = val;
+          if (type === 'estimated_1rm') pr.estimatedOneRepMax = val;
+
+          await setDoc(doc(db, 'personalRecords', pr.id), sanitizeForFirestore(pr));
+        };
+
+        if (m.max_weight && m.max_weight.val > 0) {
+          await createRecord('max_weight', m.max_weight.val, m.max_weight.set);
+        }
+        if (m.max_reps && m.max_reps.val > 0) {
+          await createRecord('max_reps', m.max_reps.val, m.max_reps.set);
+        }
+        if (m.max_volume && m.max_volume.val > 0) {
+          await createRecord('max_volume', m.max_volume.val, m.max_volume.set);
+        }
+        if (m.estimated_1rm && m.estimated_1rm.val > 0) {
+          await createRecord('estimated_1rm', m.estimated_1rm.val, m.estimated_1rm.set);
+        }
+      }
+    } catch (error) {
+      console.error("recalculatePersonalRecords failed:", error);
+    }
+  },
+
+  async updateBodyMeasurement(id: string, updates: Partial<BodyMeasurement>): Promise<void> {
+    try {
+      await updateDoc(doc(db, 'bodyMeasurements', id), sanitizeForFirestore({ ...updates, updatedAt: new Date().toISOString() }));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `bodyMeasurements/${id}`);
+    }
+  },
+
+  async getLatestBodyMeasurement(userId: string): Promise<BodyMeasurement | null> {
+    try {
+      const q = query(collection(db, 'bodyMeasurements'), where('userId', '==', userId));
+      const snap = await getDocs(q);
+      const list: BodyMeasurement[] = [];
+      snap.forEach(d => {
+        list.push({ id: d.id, ...d.data() } as BodyMeasurement);
+      });
+      if (list.length === 0) return null;
+      list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      return list[0];
+    } catch (error) {
+      handleFirestoreError(error, OperationType.GET, `bodyMeasurements`);
+      return null;
+    }
+  },
+
+  async updateRecoveryEntry(id: string, updates: Partial<RecoveryEntry>): Promise<void> {
+    try {
+      await updateDoc(doc(db, 'recoveryEntries', id), sanitizeForFirestore({ ...updates, updatedAt: new Date().toISOString() }));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `recoveryEntries/${id}`);
+    }
+  },
+
+  async deleteRecoveryEntry(id: string): Promise<void> {
+    try {
+      await deleteDoc(doc(db, 'recoveryEntries', id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `recoveryEntries/${id}`);
+    }
+  },
+
+  async getRecoveryEntryByDate(userId: string, date: string): Promise<RecoveryEntry | null> {
+    try {
+      const id = `${userId}_${date}`;
+      const snap = await getDoc(doc(db, 'recoveryEntries', id));
+      return snap.exists() ? { id: snap.id, ...snap.data() } as RecoveryEntry : null;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.GET, `recoveryEntries/${userId}_${date}`);
+      return null;
+    }
+  },
+
+  async updateDeloadSuggestionStatus(id: string, status: 'pending' | 'accepted' | 'rejected'): Promise<void> {
+    try {
+      await updateDoc(doc(db, 'deloadSuggestions', id), { status });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `deloadSuggestions/${id}`);
+    }
+  },
+
+  async generateCalendarFromProgram(userId: string, program: GeneratedTrainingProgram, startDateStr: string): Promise<void> {
+    if (!userId || userId.trim() === '') {
+      throw new Error('Kullanıcı kimliği (userId) eksik. Takvim oluşturulamıyor.');
+    }
+    try {
+      const q = query(collection(db, 'trainingCalendarEntries'), where('userId', '==', userId), where('programId', '==', program.id));
+      const snap = await getDocs(q);
+      for (const docSnap of snap.docs) {
+        await deleteDoc(docSnap.ref);
+      }
+
+      const [startYear, startMonth, startDay] = startDateStr.split('-').map(Number);
+      const start = new Date(startYear, startMonth - 1, startDay);
+
+      const startDayOfWeek = start.getDay(); // 0 is Sunday, 1 is Monday, ..., 6 is Saturday
+      const daysToSubtract = startDayOfWeek === 0 ? 6 : startDayOfWeek - 1; // Days back to Monday
+      const mondayOfStartWeek = new Date(start);
+      mondayOfStartWeek.setDate(start.getDate() - daysToSubtract);
+
+      const weeklyDays = program.weeklyDays || 3;
+      const durationWeeks = program.durationWeeks || 4;
+
+      const workoutDayIndices = 
+        weeklyDays === 1 ? [0] :
+        weeklyDays === 2 ? [1, 3] :
+        weeklyDays === 3 ? [0, 2, 4] :
+        weeklyDays === 4 ? [0, 1, 3, 4] :
+        weeklyDays === 5 ? [0, 1, 2, 4, 5] :
+        weeklyDays === 6 ? [0, 1, 2, 3, 4, 5] :
+        [0, 1, 2, 3, 4, 5, 6];
+
+      let sessionIndex = 0;
+      const sessions = program.sessions || [];
+
+      for (let w = 0; w < durationWeeks; w++) {
+        for (let d = 0; d < 7; d++) {
+          const currentDate = new Date(mondayOfStartWeek);
+          currentDate.setDate(mondayOfStartWeek.getDate() + (w * 7 + d));
+          const dateStr = currentDate.toISOString().split('T')[0];
+
+          const isWorkout = workoutDayIndices.includes(d);
+          let sessionName = 'Dinlenme Günü';
+          let status: 'planned' | 'rest_day' = 'rest_day';
+
+          if (isWorkout && sessions.length > 0) {
+            const session = sessions[sessionIndex % sessions.length];
+            sessionName = session.name;
+            status = 'planned';
+            sessionIndex++;
+          }
+
+          const entry: TrainingCalendarEntry = {
+            id: `${program.id}_w${w}_d${d}`,
+            userId,
+            programId: program.id,
+            date: dateStr,
+            sessionName,
+            status,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+
+          await setDoc(doc(db, 'trainingCalendarEntries', entry.id), sanitizeForFirestore(entry), { merge: true });
+        }
+      }
+    } catch (error) {
+      console.error("generateCalendarFromProgram failed:", error);
+      throw error;
+    }
+  },
+
+  async markWorkoutCompleted(entryId: string): Promise<void> {
+    try {
+      await updateDoc(doc(db, 'trainingCalendarEntries', entryId), {
+        status: 'completed',
+        updatedAt: new Date().toISOString()
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `trainingCalendarEntries/${entryId}`);
+    }
+  },
+
+  async markWorkoutMissed(entryId: string): Promise<void> {
+    try {
+      await updateDoc(doc(db, 'trainingCalendarEntries', entryId), {
+        status: 'missed',
+        updatedAt: new Date().toISOString()
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `trainingCalendarEntries/${entryId}`);
+    }
+  },
+
+  async rescheduleWorkout(entryId: string, newDate: string): Promise<void> {
+    try {
+      await updateDoc(doc(db, 'trainingCalendarEntries', entryId), {
+        date: newDate,
+        updatedAt: new Date().toISOString()
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `trainingCalendarEntries/${entryId}`);
+    }
+  },
+
+  async checkAndSavePersonalRecords(userId: string, setEntries: WorkoutSetEntry[], workoutId?: string): Promise<PersonalRecord[]> {
+    try {
+      const q = query(collection(db, 'personalRecords'), where('userId', '==', userId));
+      const snap = await getDocs(q);
+      const existingPRs: PersonalRecord[] = [];
+      snap.forEach(d => {
+        existingPRs.push({ id: d.id, ...d.data() } as PersonalRecord);
+      });
+
+      const newPRs = checkForNewPRs(userId, existingPRs, setEntries, workoutId);
+
+      for (const pr of newPRs) {
+        await setDoc(doc(db, 'personalRecords', pr.id), sanitizeForFirestore(pr));
+      }
+
+      return newPRs;
+    } catch (error) {
+      console.error("checkAndSavePersonalRecords failed:", error);
+      return [];
+    }
   },
 };

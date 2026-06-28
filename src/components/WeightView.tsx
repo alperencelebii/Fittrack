@@ -130,7 +130,7 @@ export default function WeightView({
       id: editingEntry ? editingEntry.id : Math.random().toString(36).substring(2, 9),
       date: formDate,
       weight: parsedWeight,
-      notes: formNotes.trim() || undefined,
+      notes: formNotes.trim(),
     };
 
     let updatedList: WeightEntry[];

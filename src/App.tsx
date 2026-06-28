@@ -19,6 +19,7 @@ import AthleteDetailsView from './components/coach/AthleteDetailsView';
 
 // Athlete Components
 import ConnectCoachView from './components/athlete/ConnectCoachView';
+import TrainingCenterView from './components/athlete/TrainingCenterView';
 
 // Existing Views
 import DashboardView from './components/DashboardView';
@@ -47,7 +48,7 @@ import {
   Loader2
 } from 'lucide-react';
 
-type TabType = 'dashboard' | 'workouts' | 'measurements' | 'weight' | 'nutrition' | 'stats' | 'settings' | 'coach-connect';
+type TabType = 'dashboard' | 'workouts' | 'measurements' | 'weight' | 'nutrition' | 'stats' | 'settings' | 'coach-connect' | 'training-center';
 type CoachTabType = 'coach-dashboard' | 'coach-athletes' | 'coach-athlete-detail' | 'settings';
 
 function MainApp() {
@@ -644,6 +645,7 @@ function MainApp() {
   // 2. ATHLETE PORTAL NAVIGATION CONTROLLER
   const navItems = [
     { id: 'dashboard', label: 'Takiplerim', icon: LayoutDashboard },
+    { id: 'training-center', label: 'AI Antrenman & Gelişim', icon: Sparkles },
     { id: 'workouts', label: 'Antrenmanlar', icon: Dumbbell },
     { id: 'measurements', label: 'Vücut Ölçüleri', icon: Ruler },
     { id: 'weight', label: 'Kilo Takibi', icon: Scale },
@@ -756,6 +758,13 @@ function MainApp() {
               onNavigate={setActiveTab}
               onTriggerQuickAction={handleQuickAction}
               onToggleGoal={handleToggleGoalStatus}
+            />
+          )}
+
+          {activeTab === 'training-center' && (
+            <TrainingCenterView
+              onShowToast={showToast}
+              workouts={workouts}
             />
           )}
 

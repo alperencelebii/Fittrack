@@ -10,8 +10,15 @@ import {
   WeightEntry, 
   BodyMeasurement, 
   MealEntry, 
-  WaterEntry 
+  WaterEntry,
+  GeneratedTrainingProgram,
+  WorkoutSetEntry,
+  PersonalRecord,
+  DeloadSuggestion,
+  RecoveryEntry
 } from '../../types';
+import { calculateDailyReadinessScore } from '../../utils/readinessCalculations';
+import { getProgressiveOverloadSuggestions } from '../../utils/progressiveOverloadCalculations';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   ResponsiveContainer,
@@ -41,7 +48,9 @@ import {
   Clock,
   Check,
   AlertCircle,
-  Loader2
+  Loader2,
+  Heart,
+  Award
 } from 'lucide-react';
 
 interface AthleteDetailsViewProps {
@@ -65,9 +74,29 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
   const [notes, setNotes] = useState<any[]>([]);
   const [goals, setGoals] = useState<any[]>([]);
   
+  // Coach set nutrition goals state
+  const [coachCalorieGoal, setCoachCalorieGoal] = useState('');
+  const [coachProteinGoal, setCoachProteinGoal] = useState('');
+  const [coachCarbGoal, setCoachCarbGoal] = useState('');
+  const [coachFatGoal, setCoachFatGoal] = useState('');
+  const [coachWaterGoal, setCoachWaterGoal] = useState('');
+  const [coachTargetWeight, setCoachTargetWeight] = useState('');
+
+  // Coach nutrition notes states
+  const [coachNutritionNote, setCoachNutritionNote] = useState('');
+  const [coachNoteDate, setCoachNoteDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [nutritionCoachNotes, setNutritionCoachNotes] = useState<any[]>([]);
+
   // UI Controllers
-  const [activeTab, setActiveTab] = useState<'summary' | 'workouts' | 'nutrition' | 'measurements'>('summary');
+  const [activeTab, setActiveTab] = useState<'summary' | 'workouts' | 'nutrition' | 'measurements' | 'training_status'>('summary');
   const [loading, setLoading] = useState(true);
+
+  // Training Module States
+  const [trainingPrograms, setTrainingPrograms] = useState<GeneratedTrainingProgram[]>([]);
+  const [workoutSetEntries, setWorkoutSetEntries] = useState<WorkoutSetEntry[]>([]);
+  const [personalRecords, setPersonalRecords] = useState<PersonalRecord[]>([]);
+  const [deloadSuggestions, setDeloadSuggestions] = useState<DeloadSuggestion[]>([]);
+  const [recoveryLogs, setRecoveryLogs] = useState<RecoveryEntry[]>([]);
 
   // Forms
   const [newNoteTitle, setNewNoteTitle] = useState('');
@@ -147,6 +176,36 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
       console.warn("Could not load coach goals in details:", err);
     });
 
+    // 8. Listen Nutrition Coach notes
+    const unsubNutritionNotes = databaseService.listenNutritionCoachNotes(athleteId, (list) => {
+      setNutritionCoachNotes(list);
+    });
+
+    // 9. Listen Training Programs
+    const unsubPrograms = databaseService.listenGeneratedTrainingPrograms(athleteId, (list) => {
+      setTrainingPrograms(list);
+    });
+
+    // 10. Listen Workout Sets
+    const unsubSets = databaseService.listenWorkoutSetEntries(athleteId, (list) => {
+      setWorkoutSetEntries(list);
+    });
+
+    // 11. Listen Personal Records
+    const unsubPRs = databaseService.listenPersonalRecords(athleteId, (list) => {
+      setPersonalRecords(list);
+    });
+
+    // 12. Listen Deload Suggestions
+    const unsubDeload = databaseService.listenDeloadSuggestions(athleteId, (list) => {
+      setDeloadSuggestions(list);
+    });
+
+    // 13. Listen Recovery logs
+    const unsubRecovery = databaseService.listenRecoveryEntries(athleteId, (list) => {
+      setRecoveryLogs(list);
+    });
+
     return () => {
       unsubWorkouts();
       unsubWeight();
@@ -155,8 +214,33 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
       unsubWater();
       unsubNotes();
       unsubGoals();
+      unsubNutritionNotes();
+      unsubPrograms();
+      unsubSets();
+      unsubPRs();
+      unsubDeload();
+      unsubRecovery();
     };
   }, [athleteId]);
+
+  // Sync athlete nutrition goals to inputs
+  useEffect(() => {
+    if (athleteDoc?.nutritionGoals) {
+      setCoachCalorieGoal(String(athleteDoc.nutritionGoals.calories || ''));
+      setCoachProteinGoal(String(athleteDoc.nutritionGoals.protein || ''));
+      setCoachCarbGoal(String(athleteDoc.nutritionGoals.carbs || ''));
+      setCoachFatGoal(String(athleteDoc.nutritionGoals.fat || ''));
+      setCoachWaterGoal(String(athleteDoc.nutritionGoals.waterMl || ''));
+      setCoachTargetWeight(String(athleteDoc.nutritionGoals.targetWeight || ''));
+    } else if (athleteDoc) {
+      setCoachCalorieGoal(String(athleteDoc.dailyCalorieGoal || '2000'));
+      setCoachProteinGoal('');
+      setCoachCarbGoal('');
+      setCoachFatGoal('');
+      setCoachWaterGoal(String(athleteDoc.dailyWaterGoal || '2500'));
+      setCoachTargetWeight(String(athleteDoc.targetWeight || ''));
+    }
+  }, [athleteDoc]);
 
   // Helper Metrics calculations
   const totalCalBurned = useMemo(() => {
@@ -289,6 +373,77 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
     }
   };
 
+  const handleUpdateNutritionGoals = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!coachProfile?.id) return;
+    try {
+      const goalsPayload = {
+        calories: Math.round(Number(coachCalorieGoal)) || 2000,
+        protein: Math.round(Number(coachProteinGoal)) || 150,
+        carbs: Math.round(Number(coachCarbGoal)) || 250,
+        fat: Math.round(Number(coachFatGoal)) || 60,
+        waterMl: Math.round(Number(coachWaterGoal)) || 2500,
+        targetWeight: Number(coachTargetWeight) || undefined,
+        setByCoachId: coachProfile.id,
+        updatedAt: new Date().toISOString()
+      };
+      await databaseService.saveCoachAthleteGoals(athleteId, coachProfile.id, goalsPayload);
+      onShowToast("Sporcunun beslenme ve su hedefleri güncellendi! 🎯");
+      const updatedProfile = await databaseService.getUserProfile(athleteId);
+      setAthleteDoc(updatedProfile);
+    } catch (err) {
+      console.error(err);
+      onShowToast("Hedefler güncellenirken hata oluştu.");
+    }
+  };
+
+  const handleResetNutritionGoals = async () => {
+    if (confirm("Sporcunun tüm koç beslenme hedeflerini sıfırlamak istediğinizden emin misiniz?")) {
+      try {
+        await databaseService.removeCoachAthleteGoals(athleteId, coachProfile?.id);
+        onShowToast("Koç beslenme hedefleri sıfırlandı.");
+        const updatedProfile = await databaseService.getUserProfile(athleteId);
+        setAthleteDoc(updatedProfile);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  };
+
+  const handleAddNutritionCoachNote = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!coachProfile?.id || !coachNutritionNote.trim()) return;
+    try {
+      const notePayload = {
+        id: Math.random().toString(36).substring(2, 9),
+        coachId: coachProfile.id,
+        athleteId,
+        date: coachNoteDate || new Date().toISOString().split('T')[0],
+        note: coachNutritionNote.trim(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      await databaseService.saveNutritionCoachNote(notePayload);
+      setCoachNutritionNote('');
+      onShowToast("Beslenme notu başarıyla kaydedildi! 📝");
+    } catch (err) {
+      console.error(err);
+      onShowToast("Beslenme notu kaydedilirken hata oluştu.");
+    }
+  };
+
+  const handleDeleteNutritionNote = async (id: string) => {
+    if (confirm("Bu beslenme notunu silmek istediğinizden emin misiniz?")) {
+      try {
+        await databaseService.deleteNutritionCoachNote(id);
+        onShowToast("Not başarıyla silindi.");
+      } catch (err) {
+        console.error(err);
+        onShowToast("Not silinirken hata oluştu.");
+      }
+    }
+  };
+
   if (!athleteId) {
     return (
       <div className="h-96 flex flex-col justify-center items-center gap-4 text-center max-w-sm mx-auto p-6 bg-slate-900 border border-slate-805 rounded-2xl">
@@ -369,6 +524,7 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
         {[
           { id: 'summary', name: 'Gözlem & Öneri', icon: Sparkles },
           { id: 'workouts', name: 'Antrenman Günlüğü', icon: Dumbbell },
+          { id: 'training_status', name: 'Antrenman & Güç Analizi', icon: Award },
           { id: 'nutrition', name: 'Beslenme & Su', icon: Apple },
           { id: 'measurements', name: 'Vücut Ölçüleri', icon: Ruler },
         ].map(tab => {
@@ -752,6 +908,226 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
         </div>
       )}
 
+      {/* TAB CONTENT: ANTRENMAN & GÜÇ ANALİZİ (COACH VIEW) */}
+      {activeTab === 'training_status' && (
+        <div className="space-y-6">
+          
+          {/* Row 1: Active Program & Recovery Stats */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            {/* Active Training Program */}
+            <div className="bg-slate-900 border border-slate-850 rounded-2xl p-5 space-y-4">
+              <h4 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2 pb-2 border-b border-slate-800">
+                <Dumbbell className="w-4 h-4 text-emerald-400" /> Aktif Antrenman Programı
+              </h4>
+              
+              {(() => {
+                const activeProg = trainingPrograms.find(p => p.isActive);
+                if (!activeProg) {
+                  return (
+                    <div className="p-8 text-center bg-slate-950/40 rounded-xl text-xs text-slate-500 border border-dashed border-slate-850">
+                      Sporcunun şu anda aktif bir antrenman programı bulunmuyor.
+                    </div>
+                  );
+                }
+                return (
+                  <div className="space-y-4">
+                    <div className="flex items-start justify-between flex-wrap gap-2">
+                      <div>
+                        <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-extrabold rounded uppercase tracking-wider">
+                          {activeProg.splitName}
+                        </span>
+                        <h5 className="text-sm font-bold text-slate-200 mt-1">{activeProg.programName}</h5>
+                      </div>
+                      <div className="text-right text-[10px] text-slate-400 font-bold">
+                        <span>{activeProg.weeklyDays} Gün / {activeProg.durationWeeks} Hafta</span>
+                        <span className="block text-[9.5px] text-slate-500 mt-0.5">Hedef: {activeProg.goal}</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 border-t border-slate-800/50 pt-3">
+                      <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block">Program Seansları:</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {activeProg.sessions.map((s, i) => (
+                          <div key={i} className="p-2.5 bg-slate-950 rounded-lg border border-slate-850">
+                            <span className="text-[9px] font-bold text-slate-500 block uppercase">Gün {i + 1}</span>
+                            <span className="text-xs font-bold text-slate-200 block mt-0.5">{s.name}</span>
+                            <span className="text-[9.5px] text-emerald-400 font-bold mt-1 block">{s.exercises.length} Egzersiz</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Recovery & Readiness Status */}
+            <div className="bg-slate-900 border border-slate-850 rounded-2xl p-5 space-y-4">
+              <h4 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2 pb-2 border-b border-slate-800">
+                <Heart className="w-4 h-4 text-rose-500" /> Günlük Hazırlık & Toparlanma Durumu
+              </h4>
+
+              {(() => {
+                const latestRecovery = recoveryLogs[0];
+                if (!latestRecovery) {
+                  return (
+                    <div className="p-8 text-center bg-slate-950/40 rounded-xl text-xs text-slate-500 border border-dashed border-slate-850">
+                      Henüz toparlanma/recovery günlüğü girilmemiş.
+                    </div>
+                  );
+                }
+                const scoreResult = calculateDailyReadinessScore(latestRecovery);
+                const activeDeloadRecord = deloadSuggestions.find(d => {
+                  if (d.status !== 'accepted') return false;
+                  const today = new Date();
+                  const start = new Date(d.suggestedStartDate);
+                  const end = new Date(start);
+                  end.setDate(start.getDate() + (d.suggestedDurationDays || 7));
+                  return today >= start && today <= end;
+                });
+
+                return (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between bg-slate-950 p-4 border border-slate-850 rounded-xl">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider">Son Ölçülen Readiness</span>
+                        <span className="text-2xl font-black text-white font-mono mt-0.5">{scoreResult.score}%</span>
+                      </div>
+                      <span className={`px-2.5 py-1 text-xs font-extrabold rounded-lg ${
+                        scoreResult.score >= 85 ? 'bg-emerald-500/15 text-emerald-400' :
+                        scoreResult.score >= 70 ? 'bg-indigo-500/15 text-indigo-400' :
+                        scoreResult.score >= 50 ? 'bg-amber-500/15 text-amber-400' :
+                        'bg-rose-500/15 text-rose-400'
+                      }`}>
+                        {scoreResult.score >= 85 ? 'SÜPER' : scoreResult.score >= 70 ? 'İYİ' : scoreResult.score >= 50 ? 'ORTA' : 'YORGUN'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                      <div className="bg-slate-950 p-2 border border-slate-850 rounded-lg">
+                        <span className="text-[9px] text-slate-500 block uppercase">Uyku</span>
+                        <span className="font-extrabold text-slate-300 block mt-0.5">{latestRecovery.sleepHours} sa ({latestRecovery.sleepQuality}/10)</span>
+                      </div>
+                      <div className="bg-slate-950 p-2 border border-slate-850 rounded-lg">
+                        <span className="text-[9px] text-slate-500 block uppercase">Yorgunluk</span>
+                        <span className="font-extrabold text-rose-400 block mt-0.5">{latestRecovery.fatigueLevel}/10</span>
+                      </div>
+                      <div className="bg-slate-950 p-2 border border-slate-850 rounded-lg">
+                        <span className="text-[9px] text-slate-500 block uppercase">Kas Ağrısı</span>
+                        <span className="font-extrabold text-amber-400 block mt-0.5">{latestRecovery.muscleSoreness}/10</span>
+                      </div>
+                    </div>
+
+                    {activeDeloadRecord ? (
+                      <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-[11px] text-slate-300">
+                        <span className="font-extrabold text-indigo-400 uppercase tracking-wider block mb-0.5">⚠️ Deload Devresi Devrede</span>
+                        Sporcu deload programını kabul etti. Ağırlık önerileri otomatik olarak düşürülmüştür.
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-slate-500 italic bg-slate-950/40 p-2.5 rounded-lg border border-slate-850/50">
+                        "{scoreResult.recommendation}"
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+
+          </div>
+
+          {/* Row 2: PR & Power tracking & Progressive Overload suggestions */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            {/* PR list (Left column) */}
+            <div className="lg:col-span-6 bg-slate-900 border border-slate-850 rounded-2xl p-5 space-y-4">
+              <h4 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2 pb-2 border-b border-slate-800">
+                <Award className="w-4 h-4 text-amber-400" /> Kişisel Güç Rekorları (PR)
+              </h4>
+
+              <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+                {personalRecords.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-slate-500 border border-dashed border-slate-850 rounded-xl">
+                    Kayıtlı PR verisi bulunmuyor.
+                  </div>
+                ) : (
+                  personalRecords.map((r) => (
+                    <div key={r.id} className="p-3 bg-slate-950 rounded-xl border border-slate-850 flex items-center justify-between gap-3 text-xs">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center shrink-0">
+                          <Dumbbell className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <span className="font-bold text-slate-200 block">{r.exerciseName}</span>
+                          <span className="text-[9.5px] text-slate-500 block">{r.date}</span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-black text-amber-400 block">{r.value} {r.recordType === 'max_reps' ? 'Tekrar' : 'kg'}</span>
+                        <span className="text-[9px] text-slate-550 uppercase tracking-wider">
+                          {r.recordType === 'max_weight' ? 'Maks Ağırlık' : r.recordType === 'max_reps' ? 'Maks Tekrar' : r.recordType === 'estimated_1rm' ? 'Tahmini 1RM' : 'Maks Hacim'}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* AI Overload Suggestions (Right column) */}
+            <div className="lg:col-span-6 bg-slate-900 border border-slate-850 rounded-2xl p-5 space-y-4">
+              <h4 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2 pb-2 border-b border-slate-800">
+                <Sparkles className="w-4 h-4 text-indigo-400" /> Progressive Overload Önerileri
+              </h4>
+
+              {(() => {
+                const overloads = getProgressiveOverloadSuggestions(workoutSetEntries);
+                if (overloads.length === 0) {
+                  return (
+                    <div className="p-8 text-center text-xs text-slate-500 border border-dashed border-slate-850 rounded-xl">
+                      Overload analizi için yeterli antrenman seti verisi bulunmuyor.
+                    </div>
+                  );
+                }
+                return (
+                  <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+                    {overloads.map((s) => (
+                      <div key={s.id} className="p-3 bg-slate-950 rounded-xl border border-slate-850/80 space-y-2 text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-200">{s.exerciseName}</span>
+                          <span className={`px-2 py-0.5 text-[9px] font-black rounded uppercase tracking-wider ${
+                            s.suggestionType === 'increase_weight' ? 'bg-emerald-500/10 text-emerald-400' :
+                            s.suggestionType === 'increase_reps' ? 'bg-sky-500/10 text-sky-400' :
+                            'bg-amber-500/10 text-amber-400'
+                          }`}>
+                            {s.suggestionType === 'increase_weight' ? 'Ağırlık Artır' : s.suggestionType === 'increase_reps' ? 'Tekrar Artır' : 'Form Odağı'}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-center text-[10px]">
+                          <div className="bg-slate-900 p-1 rounded">
+                            <span className="text-slate-500 block">Önceki</span>
+                            <span className="font-bold text-slate-400">{s.currentWeight} kg x {s.currentReps} t</span>
+                          </div>
+                          <div className="bg-slate-900 p-1 border border-indigo-500/20 rounded">
+                            <span className="text-indigo-400 font-extrabold block">Öneri</span>
+                            <span className="font-bold text-emerald-400">{s.suggestedWeight} kg x {s.suggestedReps} t</span>
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-slate-400 leading-relaxed bg-slate-900/30 p-1.5 rounded">
+                          {s.reason}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+
+          </div>
+
+        </div>
+      )}
+
       {/* TAB CONTENT 3: MEALS & DIET */}
       {activeTab === 'nutrition' && (
         <div className="space-y-6">
@@ -769,42 +1145,241 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
             </div>
           </div>
 
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            {/* Left Column: Nutrition Goals Setting Form */}
+            <div className="bg-slate-900 border border-slate-850 rounded-2xl p-5 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                <h3 className="text-xs font-bold text-teal-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Target className="w-4 h-4 text-teal-400" /> Sporcu Beslenme ve Su Hedefleri
+                </h3>
+                {athleteDoc?.nutritionGoals?.setByCoachId && (
+                  <button
+                    type="button"
+                    onClick={handleResetNutritionGoals}
+                    className="text-[9px] font-black text-rose-400 hover:underline uppercase tracking-wide cursor-pointer"
+                  >
+                    Hedefleri Sıfırla
+                  </button>
+                )}
+              </div>
+
+              {athleteDoc?.nutritionGoals?.setByCoachId ? (
+                <div className="bg-teal-950/20 border border-teal-500/10 text-teal-300 p-2.5 rounded-lg text-[10px] font-medium">
+                  ✓ Bu sporcuya ait hedefler şu an sizin tarafınızdan yönetilmektedir.
+                </div>
+              ) : (
+                <div className="bg-slate-950 p-2.5 rounded-lg text-[10px] text-slate-400 font-medium">
+                  Sporcu şu an kendi onboarding/varsayılan hedeflerini kullanıyor. Aşağıdan özel hedefler atayabilirsiniz.
+                </div>
+              )}
+
+              <form onSubmit={handleUpdateNutritionGoals} className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                      Günlük Kalori (kcal) *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      value={coachCalorieGoal}
+                      onChange={(e) => setCoachCalorieGoal(e.target.value)}
+                      placeholder="Örn: 2500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-teal-500 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                      Hedef Su (ml) *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      value={coachWaterGoal}
+                      onChange={(e) => setCoachWaterGoal(e.target.value)}
+                      placeholder="Örn: 3000"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-teal-500 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                      Protein Hedefi (g) *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      value={coachProteinGoal}
+                      onChange={(e) => setCoachProteinGoal(e.target.value)}
+                      placeholder="Örn: 160"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-teal-500 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                      Karb Hedefi (g) *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      value={coachCarbGoal}
+                      onChange={(e) => setCoachCarbGoal(e.target.value)}
+                      placeholder="Örn: 250"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-teal-500 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                      Yağ Hedefi (g) *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      value={coachFatGoal}
+                      onChange={(e) => setCoachFatGoal(e.target.value)}
+                      placeholder="Örn: 70"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-teal-500 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                      Hedef Vücut Kilosu (kg)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={coachTargetWeight}
+                      onChange={(e) => setCoachTargetWeight(e.target.value)}
+                      placeholder="Örn: 78"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-teal-500 font-mono"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full bg-teal-500 hover:bg-teal-400 text-slate-950 font-black py-2 rounded-xl text-xs transition cursor-pointer text-center"
+                >
+                  Hedefleri Güncelle
+                </button>
+              </form>
+            </div>
+
+            {/* Right Column: Coach Nutrition Notes and Logs */}
+            <div className="bg-slate-900 border border-slate-850 rounded-2xl p-5 shadow-sm space-y-4">
+              <h3 className="text-xs font-bold text-purple-400 uppercase tracking-wider border-b border-slate-800 pb-2 flex items-center gap-1.5">
+                <MessageSquare className="w-4 h-4 text-purple-400" /> Beslenme & Diyet Notu Ekle
+              </h3>
+
+              <form onSubmit={handleAddNutritionCoachNote} className="space-y-3">
+                <div className="grid grid-cols-3 gap-2 items-center">
+                  <div className="col-span-1">
+                    <label className="block text-[10px] font-bold text-slate-450 uppercase tracking-wider mb-0.5">
+                      Tarih
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={coachNoteDate}
+                      onChange={(e) => setCoachNoteDate(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-teal-500"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-[10px] font-bold text-slate-450 uppercase tracking-wider mb-0.5">
+                      Not / Detay *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Örn: Bu hafta karbonhidrat oranını arttır, antrenman öncesi ye."
+                      value={coachNutritionNote}
+                      onChange={(e) => setCoachNutritionNote(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1 text-xs text-slate-200 focus:outline-none focus:border-teal-500"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 rounded-xl text-xs transition cursor-pointer"
+                >
+                  Beslenme Notunu Kaydet
+                </button>
+              </form>
+
+              {/* List of coach nutrition notes */}
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                <span className="text-[9.5px] font-black text-slate-500 uppercase tracking-widest block">KAYITLI BESLENME NOTLARINIZ:</span>
+                {nutritionCoachNotes.length === 0 ? (
+                  <p className="text-[10px] text-slate-500 italic">Kayıtlı bir beslenme notunuz bulunmamaktadır.</p>
+                ) : (
+                  nutritionCoachNotes.map((n) => (
+                    <div key={n.id} className="p-2.5 bg-slate-950 border border-slate-850 rounded-lg flex items-start justify-between gap-3 text-xs">
+                      <div className="space-y-1">
+                        <span className="bg-slate-900 border border-slate-800/80 px-1.5 py-0.5 rounded text-[9px] text-teal-400 font-bold font-mono font-normal">
+                          {n.date}
+                        </span>
+                        <p className="text-slate-300 font-medium italic">"{n.note}"</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteNutritionNote(n.id)}
+                        className="text-slate-500 hover:text-rose-400 p-1 rounded hover:bg-rose-500/10 transition shrink-0 cursor-pointer animate-fade-in"
+                        title="Notu Sil"
+                      >
+                        <Trash className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+          </div>
+
+          {/* Meals & Diet entries list (bottom full width) */}
           <div className="space-y-3">
-            <h3 className="text-xs font-bold text-slate-350 uppercase tracking-wider">Öğün & Yemek Girişleri</h3>
+            <h3 className="text-xs font-bold text-slate-350 uppercase tracking-wider">Sporcunun Öğün & Yemek Girişleri ({meals.length} Giriş)</h3>
 
             {meals.length === 0 ? (
-              <p className="text-xs text-slate-500 italic p-6 text-center">Herhangi bir besin kaydı bulunamadı.</p>
+              <p className="text-xs text-slate-500 italic p-6 text-center bg-slate-900 border border-slate-850 rounded-xl">Herhangi bir besin kaydı bulunamadı.</p>
             ) : (
-              <div className="space-y-2.5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {meals.map(m => (
-                  <div key={m.id} className="p-3.5 bg-slate-900 border border-slate-850 rounded-xl space-y-2">
+                  <div key={m.id} className="p-3.5 bg-slate-900 border border-slate-850 rounded-xl space-y-2 shadow-sm">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="px-1.5 py-0.5 bg-orange-400/10 text-orange-400 text-[9px] font-extrabold rounded">
                           {m.mealType}
                         </span>
-                        <span className="text-[10px] text-slate-500 font-bold">{m.date}</span>
+                        <span className="text-[10px] text-slate-500 font-bold font-mono">{m.date}</span>
                       </div>
-                      <span className="text-xs font-bold text-orange-450">{m.calories} kcal</span>
+                      <span className="text-xs font-bold text-teal-400">{m.calories} kcal</span>
                     </div>
 
                     <div>
-                      <h4 className="text-xs font-extrabold text-white">{m.foodName}</h4>
-                      {m.notes && <p className="text-[10.5px] text-slate-500 font-medium italic mt-0.5">"{m.notes}"</p>}
+                      <h4 className="text-xs font-bold text-slate-100">{m.foodName}</h4>
+                      {m.notes && <p className="text-[10px] text-slate-450 font-medium italic mt-0.5">"{m.notes}"</p>}
                     </div>
 
                     {/* Macros info */}
-                    <div className="grid grid-cols-3 gap-2 text-[10px]">
-                      <div className="bg-slate-950 p-1.5 rounded text-center">
-                        <span className="text-slate-550 block">Proteins</span>
+                    <div className="grid grid-cols-3 gap-2 text-[10px] font-mono">
+                      <div className="bg-slate-950 p-1.5 rounded text-center border border-slate-850/40">
+                        <span className="text-rose-400 block font-bold">Protein</span>
                         <span className="text-slate-300 font-bold">{m.protein}g</span>
                       </div>
-                      <div className="bg-slate-950 p-1.5 rounded text-center">
-                        <span className="text-slate-550 block">Carbs</span>
+                      <div className="bg-slate-950 p-1.5 rounded text-center border border-slate-850/40">
+                        <span className="text-blue-400 block font-bold">Karb</span>
                         <span className="text-slate-300 font-bold">{m.carbs}g</span>
                       </div>
-                      <div className="bg-slate-950 p-1.5 rounded text-center">
-                        <span className="text-slate-550 block">Fats</span>
+                      <div className="bg-slate-950 p-1.5 rounded text-center border border-slate-850/40">
+                        <span className="text-yellow-500 block font-bold">Yağ</span>
                         <span className="text-slate-300 font-bold">{m.fat}g</span>
                       </div>
                     </div>

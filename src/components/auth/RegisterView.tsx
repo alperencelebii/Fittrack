@@ -46,21 +46,28 @@ export default function RegisterView({ onToggleToLogin, onShowToast }: RegisterV
     setError('');
 
     try {
-      // 1. If Athlete has entered an invite code, check if that coach actually exists first
-      let resolvedCoachId = '';
-      if (role === 'athlete' && inviteCode.trim()) {
-        const foundCoach = await databaseService.findCoachByInviteCode(inviteCode.trim());
-        if (!foundCoach) {
-          setError('Girdiğiniz davet koduna ait bir koç bulunamadı. Lütfen kontrol edin veya boş bırakın.');
-          setLoading(false);
-          return;
-        }
-        resolvedCoachId = foundCoach.id;
-      }
-
-      // 2. Create the user in Auth
+      // 1. Create the user in Auth first to establish authenticated session
       const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
       const userId = cred.user.uid;
+
+      // 2. Check if Athlete entered a coach invite code while authenticated
+      let resolvedCoachId = '';
+      let isCodeValid = true;
+      let hasErrorCheckingCode = false;
+
+      if (role === 'athlete' && inviteCode.trim()) {
+        try {
+          const foundCoach = await databaseService.findCoachByInviteCode(inviteCode.trim());
+          if (foundCoach) {
+            resolvedCoachId = foundCoach.id;
+          } else {
+            isCodeValid = false;
+          }
+        } catch (queryErr) {
+          console.error("Authenticated coach check failed:", queryErr);
+          hasErrorCheckingCode = true;
+        }
+      }
 
       // 3. Setup User document details
       const userProfile: any = {
@@ -92,7 +99,14 @@ export default function RegisterView({ onToggleToLogin, onShowToast }: RegisterV
         await databaseService.connectToCoach(userId, resolvedCoachId);
       }
 
-      onShowToast('Hesabınız başarıyla oluşturuldu! Hoş geldiniz.');
+      // 6. Give distinct feedback based on invite code outcome
+      if (role === 'athlete' && inviteCode.trim() && !isCodeValid) {
+        onShowToast('Hesabınız oluşturuldu ancak girdiğiniz davet kodu geçersiz olduğu için koç bağlantısı yapılamadı. Kodunuzu daha sonra güncelleyebilirsiniz.');
+      } else if (role === 'athlete' && inviteCode.trim() && hasErrorCheckingCode) {
+        onShowToast('Hesabınız oluşturuldu ancak davet kodu doğrulanırken sistemsel bir hata oluştu. Daha sonra profilinizden bağlanmayı deneyebilirsiniz.');
+      } else {
+        onShowToast('Hesabınız başarıyla oluşturuldu! Hoş geldiniz.');
+      }
     } catch (err: any) {
       console.error(err);
       if (err.code === 'auth/email-already-in-use') {
@@ -100,7 +114,17 @@ export default function RegisterView({ onToggleToLogin, onShowToast }: RegisterV
       } else if (err.code === 'auth/invalid-email') {
         setError('E-posta adresi geçersiz.');
       } else {
-        setError('Kayıt oluşturulurken beklenmedik bir hata meydana geldi.');
+        // Try parsing Firestore custom error JSON
+        try {
+          const parsed = JSON.parse(err.message);
+          if (parsed && parsed.error) {
+            setError(`Sistem Hatası (${parsed.operationType} @ ${parsed.path}): ${parsed.error}`);
+          } else {
+            setError(err.message || 'Kayıt oluşturulurken beklenmedik bir hata meydana geldi.');
+          }
+        } catch {
+          setError(err.message || 'Kayıt oluşturulurken beklenmedik bir hata meydana geldi.');
+        }
       }
     } finally {
       setLoading(false);

@@ -7,7 +7,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, User, signOut } from 'firebase/auth';
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
-import { UserSettings } from '../types';
+import { UserSettings, NutritionGoals } from '../types';
 
 interface UserProfile extends UserSettings {
   id: string;
@@ -16,6 +16,7 @@ interface UserProfile extends UserSettings {
   name: string;
   coachId?: string;
   inviteCode?: string;
+  nutritionGoals?: NutritionGoals;
 }
 
 interface AuthContextType {

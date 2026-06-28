@@ -139,9 +139,15 @@ export const storageService = {
     const existingIndex = entries.findIndex((e) => e.date === date);
 
     if (existingIndex > -1) {
-      entries[existingIndex].amountMl = Math.max(0, entries[existingIndex].amountMl + amountMl);
+      const existing = entries[existingIndex];
+      existing.amountMl = Math.max(0, (existing.amountMl || 0) + amountMl);
     } else {
-      entries.push({ date, amountMl: Math.max(0, amountMl) });
+      entries.push({
+        id: Math.random().toString(36).substring(2, 9),
+        date,
+        amountMl: Math.max(0, amountMl),
+        createdAt: new Date().toISOString()
+      });
     }
     this.saveWaterEntries(entries);
   },
@@ -271,11 +277,11 @@ export const storageService = {
 
     // Water entries
     const demoWater: WaterEntry[] = [
-      { date: formatDate(4), amountMl: 2500 },
-      { date: formatDate(3), amountMl: 3250 },
-      { date: formatDate(2), amountMl: 3000 },
-      { date: formatDate(1), amountMl: 3500 },
-      { date: formatDate(0), amountMl: 1750 }, // today, partial
+      { id: 'w1', userId: 'demo-user', date: formatDate(4), amountMl: 2500, createdAt: new Date().toISOString() },
+      { id: 'w2', userId: 'demo-user', date: formatDate(3), amountMl: 3250, createdAt: new Date().toISOString() },
+      { id: 'w3', userId: 'demo-user', date: formatDate(2), amountMl: 3000, createdAt: new Date().toISOString() },
+      { id: 'w4', userId: 'demo-user', date: formatDate(1), amountMl: 3500, createdAt: new Date().toISOString() },
+      { id: 'w5', userId: 'demo-user', date: formatDate(0), amountMl: 1750, createdAt: new Date().toISOString() }, // today, partial
     ];
     this.saveWaterEntries(demoWater);
 
@@ -284,6 +290,7 @@ export const storageService = {
       // Today (0 days ago)
       {
         id: 'f1',
+        userId: 'demo-user',
         date: formatDate(0),
         mealType: 'Kahvaltı',
         foodName: 'Yulaflı Omlet (4 Yumurta, 50g Yulaf)',
@@ -295,6 +302,7 @@ export const storageService = {
       },
       {
         id: 'f2',
+        userId: 'demo-user',
         date: formatDate(0),
         mealType: 'Öğle',
         foodName: 'Izgara Tavuk Göğsü (200g) ve Basmati Pirinç Pilavı (150g)',
@@ -306,6 +314,7 @@ export const storageService = {
       },
       {
         id: 'f3',
+        userId: 'demo-user',
         date: formatDate(0),
         mealType: 'Ara Öğün',
         foodName: 'Muz, Çiğ Badem (30g) ve Whey Protein Shake',
@@ -318,6 +327,7 @@ export const storageService = {
       // Yesterday (1 days ago)
       {
         id: 'f4',
+        userId: 'demo-user',
         date: formatDate(1),
         mealType: 'Kahvaltı',
         foodName: 'Fıstık Ezmeli Tost & Süzme Peynir',
@@ -328,6 +338,7 @@ export const storageService = {
       },
       {
         id: 'f5',
+        userId: 'demo-user',
         date: formatDate(1),
         mealType: 'Öğle',
         foodName: 'Dana Kıyma (180g) & Makarna (200g)',
@@ -338,6 +349,7 @@ export const storageService = {
       },
       {
         id: 'f6',
+        userId: 'demo-user',
         date: formatDate(1),
         mealType: 'Akşam',
         foodName: 'Fırında Somon (200g) & Karışık Yeşil Salata',
