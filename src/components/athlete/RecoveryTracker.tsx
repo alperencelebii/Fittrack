@@ -76,13 +76,17 @@ export default function RecoveryTracker({
   }, [deloadSuggestions]);
 
   const handleAcceptDeload = async (id: string) => {
+    if (!userId || userId.trim() === '') {
+      onShowToast('Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.');
+      return;
+    }
     try {
       await databaseService.updateDeloadSuggestionStatus(id, 'accepted');
       onShowToast('Deload planı kabul edildi! 1 hafta boyunca antrenman ağırlık ve hacim hedefleriniz otomatik olarak düşürülecektir. 🛡️🧘');
     } catch (err: any) {
       console.error('AI Antrenman/Gelişim gerçek hata:', err);
       let msg = 'Deload kabul edilirken hata oluştu.';
-      if (!userId) {
+      if (!userId || userId.trim() === '') {
         msg = 'Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.';
       } else if (err.message && err.message.includes('kullanıcı oturumu bulunamadı')) {
         msg = 'Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.';
@@ -92,13 +96,17 @@ export default function RecoveryTracker({
   };
 
   const handleRejectDeload = async (id: string) => {
+    if (!userId || userId.trim() === '') {
+      onShowToast('Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.');
+      return;
+    }
     try {
       await databaseService.updateDeloadSuggestionStatus(id, 'rejected');
       onShowToast('Deload önerisi reddedildi. Antrenman yoğunluğunu koruyorsunuz. Kendinizi aşırı zorlamamaya dikkat edin! ⚡');
     } catch (err: any) {
       console.error('AI Antrenman/Gelişim gerçek hata:', err);
       let msg = 'Deload reddedilirken hata oluştu.';
-      if (!userId) {
+      if (!userId || userId.trim() === '') {
         msg = 'Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.';
       } else if (err.message && err.message.includes('kullanıcı oturumu bulunamadı')) {
         msg = 'Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.';
@@ -109,6 +117,10 @@ export default function RecoveryTracker({
 
   const handleSaveLog = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!userId || userId.trim() === '') {
+      onShowToast('Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.');
+      return;
+    }
 
     try {
       const entry: RecoveryEntry = {
@@ -139,7 +151,7 @@ export default function RecoveryTracker({
     } catch (err: any) {
       console.error('AI Antrenman/Gelişim gerçek hata:', err);
       let msg = 'Toparlanma verisi kaydedilemedi.';
-      if (!userId) {
+      if (!userId || userId.trim() === '') {
         msg = 'Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.';
       } else if (err.message && err.message.includes('kullanıcı oturumu bulunamadı')) {
         msg = 'Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.';

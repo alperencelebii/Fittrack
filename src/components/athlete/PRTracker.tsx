@@ -98,6 +98,10 @@ export default function PRTracker({
 
   const handleAddPR = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!userId || userId.trim() === '') {
+      onShowToast('Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.');
+      return;
+    }
     if (!exerciseId || recordValue <= 0) {
       onShowToast('Lütfen geçerli bir egzersiz ve değer girin.');
       return;
@@ -127,7 +131,7 @@ export default function PRTracker({
     } catch (err: any) {
       console.error('AI Antrenman/Gelişim gerçek hata:', err);
       let msg = 'PR kaydı eklenirken hata oluştu.';
-      if (!userId) {
+      if (!userId || userId.trim() === '') {
         msg = 'Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.';
       } else if (err.message && err.message.includes('kullanıcı oturumu bulunamadı')) {
         msg = 'Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.';

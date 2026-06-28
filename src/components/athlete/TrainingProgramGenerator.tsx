@@ -59,8 +59,8 @@ export default function TrainingProgramGenerator({
   const handleGenerate = async () => {
     setIsGenerating(true);
     try {
-      if (!userId) {
-        throw new Error('Geçerli bir kullanıcı oturumu bulunamadı.');
+      if (!userId || userId.trim() === '') {
+        throw new Error('Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.');
       }
 
       const newProgram = await generateProgramWithFallback({
@@ -82,7 +82,7 @@ export default function TrainingProgramGenerator({
     } catch (err: any) {
       console.error('AI Antrenman/Gelişim gerçek hata:', err);
       let msg = 'Program oluşturulurken hata yaşandı.';
-      if (!userId) {
+      if (!userId || userId.trim() === '') {
         msg = 'Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.';
       } else if (err.message && err.message.includes('kullanıcı oturumu bulunamadı')) {
         msg = 'Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.';
@@ -96,13 +96,17 @@ export default function TrainingProgramGenerator({
   };
 
   const handleSetActive = async (id: string) => {
+    if (!userId || userId.trim() === '') {
+      onShowToast('Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.');
+      return;
+    }
     try {
       await databaseService.setActiveTrainingProgram(userId, id);
       onShowToast('Seçilen program aktif hale getirildi! 🚀');
     } catch (err: any) {
       console.error('AI Antrenman/Gelişim gerçek hata:', err);
       let msg = 'Program aktif hale getirilemedi.';
-      if (!userId) {
+      if (!userId || userId.trim() === '') {
         msg = 'Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.';
       } else if (err.message && err.message.includes('kullanıcı oturumu bulunamadı')) {
         msg = 'Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.';
@@ -112,6 +116,10 @@ export default function TrainingProgramGenerator({
   };
 
   const handleDelete = async (id: string) => {
+    if (!userId || userId.trim() === '') {
+      onShowToast('Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.');
+      return;
+    }
     if (confirm('Bu programı silmek istediğinize emin misiniz?')) {
       try {
         await databaseService.deleteGeneratedTrainingProgram(id);
@@ -122,7 +130,7 @@ export default function TrainingProgramGenerator({
       } catch (err: any) {
         console.error('AI Antrenman/Gelişim gerçek hata:', err);
         let msg = 'Program silinemedi.';
-        if (!userId) {
+        if (!userId || userId.trim() === '') {
           msg = 'Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.';
         } else if (err.message && err.message.includes('kullanıcı oturumu bulunamadı')) {
           msg = 'Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.';

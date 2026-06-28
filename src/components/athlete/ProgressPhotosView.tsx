@@ -42,6 +42,10 @@ export default function ProgressPhotosView({
 
   const handleAddPhoto = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!userId || userId.trim() === '') {
+      onShowToast('Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.');
+      return;
+    }
 
     let finalUrl = photoUrl;
     if (!finalUrl) {
@@ -74,7 +78,7 @@ export default function ProgressPhotosView({
     } catch (err: any) {
       console.error('AI Antrenman/Gelişim gerçek hata:', err);
       let msg = 'Fotoğraf eklenemedi.';
-      if (!userId) {
+      if (!userId || userId.trim() === '') {
         msg = 'Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.';
       } else if (err.message && err.message.includes('kullanıcı oturumu bulunamadı')) {
         msg = 'Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.';
@@ -86,6 +90,10 @@ export default function ProgressPhotosView({
   };
 
   const handleDelete = async (id: string) => {
+    if (!userId || userId.trim() === '') {
+      onShowToast('Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.');
+      return;
+    }
     if (confirm('Bu fotoğrafı silmek istediğinize emin misiniz?')) {
       try {
         await databaseService.deleteProgressPhoto(id);
@@ -95,7 +103,7 @@ export default function ProgressPhotosView({
       } catch (err: any) {
         console.error('AI Antrenman/Gelişim gerçek hata:', err);
         let msg = 'Fotoğraf silinemedi.';
-        if (!userId) {
+        if (!userId || userId.trim() === '') {
           msg = 'Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.';
         } else if (err.message && err.message.includes('kullanıcı oturumu bulunamadı')) {
           msg = 'Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.';

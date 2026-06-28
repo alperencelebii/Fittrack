@@ -73,6 +73,10 @@ export default function TrainingCalendar({
 
   const handleAddEntry = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!userId || userId.trim() === '') {
+      onShowToast('Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.');
+      return;
+    }
     if (!formSessionName && formStatus !== 'rest_day') {
       onShowToast('Lütfen antrenman adı girin.');
       return;
@@ -96,7 +100,7 @@ export default function TrainingCalendar({
     } catch (err: any) {
       console.error('AI Antrenman/Gelişim gerçek hata:', err);
       let msg = 'Takvim kaydı oluşturulamadı.';
-      if (!userId) {
+      if (!userId || userId.trim() === '') {
         msg = 'Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.';
       } else if (err.message && err.message.includes('kullanıcı oturumu bulunamadı')) {
         msg = 'Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.';
@@ -108,13 +112,17 @@ export default function TrainingCalendar({
   };
 
   const handleDeleteEntry = async (id: string) => {
+    if (!userId || userId.trim() === '') {
+      onShowToast('Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.');
+      return;
+    }
     try {
       await databaseService.deleteTrainingCalendarEntry(id);
       onShowToast('Takvim kaydı silindi.');
     } catch (err: any) {
       console.error('AI Antrenman/Gelişim gerçek hata:', err);
       let msg = 'Takvim kaydı silinemedi.';
-      if (!userId) {
+      if (!userId || userId.trim() === '') {
         msg = 'Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.';
       } else if (err.message && err.message.includes('kullanıcı oturumu bulunamadı')) {
         msg = 'Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.';
@@ -124,6 +132,10 @@ export default function TrainingCalendar({
   };
 
   const handleAutoSchedule = async () => {
+    if (!userId || userId.trim() === '') {
+      onShowToast('Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.');
+      return;
+    }
     if (!activeProgram) {
       onShowToast('Takvim oluşturmak için önce aktif bir antrenman programı seçmelisiniz.');
       return;
@@ -136,7 +148,7 @@ export default function TrainingCalendar({
     } catch (err: any) {
       console.error('AI Antrenman/Gelişim gerçek hata:', err);
       let msg = 'Otomatik planlama başarısız oldu.';
-      if (!userId) {
+      if (!userId || userId.trim() === '') {
         msg = 'Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.';
       } else if (err.message && err.message.includes('kullanıcı oturumu bulunamadı')) {
         msg = 'Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.';

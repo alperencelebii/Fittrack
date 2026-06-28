@@ -298,6 +298,11 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
     operationType,
     path,
   };
+  const errMsg = error instanceof Error ? error.message : String(error);
+  if (errMsg.toLowerCase().includes('permission') || errMsg.toLowerCase().includes('insufficient')) {
+    console.error('Firestore permission/write error:', error);
+    throw new Error('Firebase izni reddetti. Lütfen oturumunuzu yenileyip tekrar deneyin.');
+  }
   console.error('Firestore Error Occurred: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
