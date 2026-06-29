@@ -118,7 +118,7 @@ export default function ProgressPhotosView({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5 mb-6">
         <div>
           <div className="flex items-center gap-2">
-            <Camera className="w-6 h-6 text-indigo-400" />
+            <Camera className="w-6 h-6 text-emerald-400" />
             <h2 className="text-xl font-bold text-white tracking-tight">Gelişim Fotoğrafları & Değişim Karşılaştırma</h2>
           </div>
           <p className="text-slate-400 text-sm mt-1">Fiziksel değişiminizi görselleştirin ve istediğiniz iki tarihi yan yana karşılaştırın.</p>
@@ -126,21 +126,21 @@ export default function ProgressPhotosView({
 
         <button
           onClick={() => setIsUploadOpen(!isUploadOpen)}
-          className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1 shadow-lg shadow-indigo-500/15"
+          className="bg-emerald-400 hover:bg-emerald-300 text-slate-950 px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1 shadow-lg shadow-emerald-400/15 cursor-pointer"
         >
           <Plus className="w-4 h-4" /> Yeni Fotoğraf Ekle
         </button>
       </div>
 
       {isUploadOpen && (
-        <form onSubmit={handleAddPhoto} className="mb-6 bg-slate-950 p-5 rounded-xl border border-indigo-500/20 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        <form onSubmit={handleAddPhoto} className="mb-6 bg-slate-950 p-5 rounded-xl border border-emerald-500/20 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
           <div>
             <label className="text-xs text-slate-400 block mb-1 font-medium">Tarih</label>
             <input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-800 text-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-indigo-500"
+              className="w-full bg-slate-900 border border-slate-800 text-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-emerald-400"
               required
             />
           </div>
@@ -149,7 +149,7 @@ export default function ProgressPhotosView({
             <select
               value={pose}
               onChange={(e) => setPose(e.target.value as any)}
-              className="w-full bg-slate-900 border border-slate-800 text-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-indigo-500"
+              className="w-full bg-slate-900 border border-slate-800 text-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-emerald-400"
             >
               <option value="front">Ön (Front)</option>
               <option value="side">Yan (Side)</option>
@@ -163,7 +163,7 @@ export default function ProgressPhotosView({
               value={photoUrl}
               onChange={(e) => setPhotoUrl(e.target.value)}
               placeholder="https://images.unsplash.com/..."
-              className="w-full bg-slate-900 border border-slate-800 text-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-indigo-500"
+              className="w-full bg-slate-900 border border-slate-800 text-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-emerald-400"
             />
           </div>
           <div className="md:col-span-3">
@@ -173,13 +173,13 @@ export default function ProgressPhotosView({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Örn: Aç karnına, antrenman öncesi ışık altında."
-              className="w-full bg-slate-900 border border-slate-800 text-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-indigo-500"
+              className="w-full bg-slate-900 border border-slate-800 text-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-emerald-400"
             />
           </div>
           <div>
             <button
               type="submit"
-              className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2 px-4 rounded-lg text-xs transition-all"
+              className="w-full bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black py-2 px-4 rounded-lg text-xs transition-all cursor-pointer"
             >
               Kaydet
             </button>
@@ -191,7 +191,7 @@ export default function ProgressPhotosView({
       {photos.length >= 2 && (
         <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800/80 mb-8">
           <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2 mb-4">
-            <Columns className="w-4 h-4 text-indigo-400" /> Yan Yana Karşılaştır
+            <Columns className="w-4 h-4 text-emerald-400" /> Yan Yana Karşılaştır
           </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
@@ -235,7 +235,7 @@ export default function ProgressPhotosView({
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute top-2 left-2 bg-slate-950/80 px-2 py-1 rounded text-[10px] font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1">
-                    <Calendar className="w-3 h-3 text-indigo-400" /> {photoA.date} ({photoA.pose})
+                    <Calendar className="w-3 h-3 text-emerald-400" /> {photoA.date} ({photoA.pose})
                   </div>
                 </div>
                 {photoA.notes && <p className="text-xs text-slate-400 italic text-center mt-2">"{photoA.notes}"</p>}
@@ -250,7 +250,7 @@ export default function ProgressPhotosView({
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute top-2 left-2 bg-slate-950/80 px-2 py-1 rounded text-[10px] font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1">
-                    <Calendar className="w-3 h-3 text-indigo-400" /> {photoB.date} ({photoB.pose})
+                    <Calendar className="w-3 h-3 text-emerald-400" /> {photoB.date} ({photoB.pose})
                   </div>
                 </div>
                 {photoB.notes && <p className="text-xs text-slate-400 italic text-center mt-2">"{photoB.notes}"</p>}
@@ -258,7 +258,7 @@ export default function ProgressPhotosView({
             </div>
           ) : (
             <div className="text-center py-8 text-slate-500 text-xs flex flex-col items-center gap-1 bg-slate-900/20 border border-dashed border-slate-800 rounded-xl">
-              <Info className="w-5 h-5 text-indigo-400/40" />
+              <Info className="w-5 h-5 text-emerald-400/40" />
               <span>Görsel bir gelişim farkı incelemek için yukarıdan iki farklı fotoğraf seçin.</span>
             </div>
           )}
@@ -278,7 +278,7 @@ export default function ProgressPhotosView({
                 className="w-full h-full object-cover transition-all group-hover:scale-105"
               />
               <div className="absolute top-2 left-2 bg-slate-950/80 px-2 py-1 rounded text-[9px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1">
-                <Tag className="w-2.5 h-2.5 text-indigo-400" /> {photo.pose}
+                <Tag className="w-2.5 h-2.5 text-emerald-400" /> {photo.pose}
               </div>
               
               <button

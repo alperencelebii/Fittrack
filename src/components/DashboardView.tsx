@@ -683,13 +683,13 @@ export default function DashboardView({
       {/* 5. Brief Stats & Streak Check */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center space-x-3.5">
-          <div className="w-12 h-12 bg-orange-500/15 text-orange-400 rounded-xl flex items-center justify-center border border-orange-500/20">
-            <Flame className="w-6 h-6 animate-pulse" />
+          <div className="w-12 h-12 bg-emerald-500/15 text-emerald-400 rounded-xl flex items-center justify-center border border-emerald-500/20">
+            <CheckCircle2 className="w-6 h-6" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-white">Uygulama Bilgilendirme ve Güvenlik</h3>
+            <h3 className="text-sm font-bold text-white">Güvenli Bulut Veri Tabanı Aktif</h3>
             <p className="text-xs text-slate-400">
-              Bu sürümde verileriniz tamamen yerel tarayıcı hafızanızda saklanır. Herhangi bir sunucuya gönderilmez.
+              Verileriniz bulut veri tabanımızda güvenle saklanır ve antrenörünüz ile anında senkronize olur.
             </p>
           </div>
         </div>

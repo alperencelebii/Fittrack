@@ -996,7 +996,7 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
                       </div>
                       <span className={`px-2.5 py-1 text-xs font-extrabold rounded-lg ${
                         scoreResult.score >= 85 ? 'bg-emerald-500/15 text-emerald-400' :
-                        scoreResult.score >= 70 ? 'bg-indigo-500/15 text-indigo-400' :
+                        scoreResult.score >= 70 ? 'bg-emerald-500/15 text-emerald-400' :
                         scoreResult.score >= 50 ? 'bg-amber-500/15 text-amber-400' :
                         'bg-rose-500/15 text-rose-400'
                       }`}>
@@ -1020,8 +1020,8 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
                     </div>
 
                     {activeDeloadRecord ? (
-                      <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-[11px] text-slate-300">
-                        <span className="font-extrabold text-indigo-400 uppercase tracking-wider block mb-0.5">⚠️ Deload Devresi Devrede</span>
+                      <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-[11px] text-slate-300">
+                        <span className="font-extrabold text-emerald-400 uppercase tracking-wider block mb-0.5">⚠️ Deload Devresi Devrede</span>
                         Sporcu deload programını kabul etti. Ağırlık önerileri otomatik olarak düşürülmüştür.
                       </div>
                     ) : (
@@ -1054,7 +1054,7 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
                   personalRecords.map((r) => (
                     <div key={r.id} className="p-3 bg-slate-950 rounded-xl border border-slate-850 flex items-center justify-between gap-3 text-xs">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center shrink-0">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
                           <Dumbbell className="w-4 h-4" />
                         </div>
                         <div>
@@ -1077,7 +1077,7 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
             {/* AI Overload Suggestions (Right column) */}
             <div className="lg:col-span-6 bg-slate-900 border border-slate-850 rounded-2xl p-5 space-y-4">
               <h4 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2 pb-2 border-b border-slate-800">
-                <Sparkles className="w-4 h-4 text-indigo-400" /> Progressive Overload Önerileri
+                <Sparkles className="w-4 h-4 text-emerald-400" /> Progressive Overload Önerileri
               </h4>
 
               {(() => {
@@ -1108,8 +1108,8 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
                             <span className="text-slate-500 block">Önceki</span>
                             <span className="font-bold text-slate-400">{s.currentWeight} kg x {s.currentReps} t</span>
                           </div>
-                          <div className="bg-slate-900 p-1 border border-indigo-500/20 rounded">
-                            <span className="text-indigo-400 font-extrabold block">Öneri</span>
+                          <div className="bg-slate-900 p-1 border border-emerald-500/20 rounded">
+                            <span className="text-emerald-400 font-extrabold block">Öneri</span>
                             <span className="font-bold text-emerald-400">{s.suggestedWeight} kg x {s.suggestedReps} t</span>
                           </div>
                         </div>

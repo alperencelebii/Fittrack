@@ -102,7 +102,7 @@ export default function ExerciseLibraryView({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5 mb-6">
         <div>
           <div className="flex items-center gap-2">
-            <BookOpen className="w-6 h-6 text-indigo-400" />
+            <BookOpen className="w-6 h-6 text-emerald-400" />
             <h2 className="text-xl font-bold text-white tracking-tight">Kapsamlı Egzersiz Kütüphanesi</h2>
           </div>
           <p className="text-slate-400 text-sm mt-1">Nizami form videoları, birincil kas grupları ve doğru form talimatlarını inceleyin.</p>
@@ -144,7 +144,7 @@ export default function ExerciseLibraryView({
           <select
             value={selectedMuscle}
             onChange={(e) => setSelectedMuscle(e.target.value)}
-            className="w-full bg-slate-900 border border-slate-800 text-slate-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-indigo-500"
+            className="w-full bg-slate-900 border border-slate-800 text-slate-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-emerald-400"
           >
             {MUSCLE_GROUPS.map(m => (
               <option key={m.value} value={m.value}>{m.label}</option>
@@ -158,7 +158,7 @@ export default function ExerciseLibraryView({
           <select
             value={selectedEquipment}
             onChange={(e) => setSelectedEquipment(e.target.value)}
-            className="w-full bg-slate-900 border border-slate-800 text-slate-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-indigo-500"
+            className="w-full bg-slate-900 border border-slate-800 text-slate-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-emerald-400"
           >
             {EQUIPMENT_TYPES.map(eq => (
               <option key={eq.value} value={eq.value}>{eq.label}</option>
@@ -177,7 +177,7 @@ export default function ExerciseLibraryView({
                 onClick={() => setCompoundFilter(type)}
                 className={`py-1.5 text-[10px] font-bold rounded-lg border transition-all ${
                   compoundFilter === type
-                    ? 'bg-indigo-600 text-white border-indigo-500'
+                    ? 'bg-emerald-400 text-slate-950 border-emerald-400'
                     : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700'
                 }`}
               >
@@ -202,12 +202,12 @@ export default function ExerciseLibraryView({
                   onClick={() => setSelectedExId(ex.id)}
                   className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
                     isActive 
-                      ? 'bg-indigo-600/10 border-indigo-500/40 shadow-inner' 
+                      ? 'bg-emerald-500/10 border-emerald-500/40 shadow-inner' 
                       : 'bg-slate-900/60 border-slate-850 hover:border-slate-750'
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-indigo-900/20 text-indigo-400 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-950/40 text-emerald-400 flex items-center justify-center">
                       <Dumbbell className="w-4 h-4" />
                     </div>
                     <div>
@@ -247,7 +247,7 @@ export default function ExerciseLibraryView({
                 <div>
                   <h3 className="text-lg font-black text-white">{selectedEx.name}</h3>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className="bg-indigo-500/10 text-indigo-400 text-[10px] font-bold uppercase px-2 py-0.5 rounded border border-indigo-500/20">
+                    <span className="bg-emerald-500/10 text-emerald-400 text-[10px] font-bold uppercase px-2 py-0.5 rounded border border-emerald-500/20">
                       {selectedEx.equipment}
                     </span>
                     <span className="bg-slate-900 text-slate-400 text-[10px] font-bold uppercase px-2 py-0.5 rounded border border-slate-800">
@@ -280,17 +280,17 @@ export default function ExerciseLibraryView({
 
               {/* Instructions */}
               <div>
-                <span className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider block mb-2">Doğru Uygulanış Talimatı</span>
+                <span className="text-[10px] text-emerald-400 uppercase font-bold tracking-wider block mb-2">Doğru Uygulanış Talimatı</span>
                 <ol className="text-xs text-slate-400 flex flex-col gap-2.5 list-decimal pl-4 leading-relaxed">
                   {selectedEx.instructions.map((step, idx) => (
-                    <li key={idx} className="marker:text-indigo-400 pl-1">{step}</li>
+                    <li key={idx} className="marker:text-emerald-400 pl-1">{step}</li>
                   ))}
                 </ol>
               </div>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-16 text-center text-slate-500 text-xs">
-              <Info className="w-8 h-8 text-indigo-400/40 mb-2" />
+              <Info className="w-8 h-8 text-emerald-400/40 mb-2" />
               <span>Lütfen ayrıntılarını görmek için sol taraftan bir egzersiz seçin.</span>
             </div>
           )}

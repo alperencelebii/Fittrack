@@ -238,7 +238,7 @@ export default function RecoveryTracker({
 
             <div>
               <label className="text-xs text-slate-400 block mb-1 font-medium flex items-center gap-1">
-                <TrendingUp className="w-3.5 h-3.5 text-indigo-500" /> Kas Ağrısı (Soreness) (1 - 10)
+                <TrendingUp className="w-3.5 h-3.5 text-emerald-500" /> Kas Ağrısı (Soreness) (1 - 10)
               </label>
               <input
                 type="range"
@@ -348,10 +348,10 @@ export default function RecoveryTracker({
 
             {/* Deload status block */}
             {activeDeloadRecord ? (
-              <div className="mt-4 p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex gap-3">
-                <Smile className="w-5 h-5 text-indigo-400 shrink-0" />
+              <div className="mt-4 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex gap-3">
+                <Smile className="w-5 h-5 text-emerald-400 shrink-0" />
                 <div>
-                  <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-wider">AKTİF DELOAD EVRESİ (HAFTASI)</h4>
+                  <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-wider">AKTİF DELOAD EVRESİ (HAFTASI)</h4>
                   <p className="text-[11px] text-slate-300 mt-1">
                     Deload planını kabul ettiniz. Vücudunuzun toparlanması için antrenman yoğunlukları %15 ve hacimler %40 azaltılmıştır. Bu sürede eklemleriniz ve kaslarınız güçlenecektir.
                   </p>

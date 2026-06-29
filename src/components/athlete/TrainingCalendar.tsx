@@ -164,7 +164,7 @@ export default function TrainingCalendar({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <div className="flex items-center gap-2">
-            <CalendarIcon className="w-6 h-6 text-indigo-400" />
+            <CalendarIcon className="w-6 h-6 text-emerald-400" />
             <h2 className="text-xl font-bold text-white tracking-tight">Antrenman Takvimi</h2>
           </div>
           <p className="text-slate-400 text-sm mt-1">Gelecek seansları planlayın ve antrenman takibinizi görselleştirin.</p>
@@ -174,14 +174,14 @@ export default function TrainingCalendar({
           {activeProgram && (
             <button
               onClick={handleAutoSchedule}
-              className="bg-indigo-600/15 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-600 hover:text-white px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5"
+              className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-450 hover:text-slate-950 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <Dumbbell className="w-3.5 h-3.5" /> Haftalık Plan Oluştur
             </button>
           )}
           <button
             onClick={() => setIsAddOpen(!isAddOpen)}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1"
+            className="bg-emerald-400 hover:bg-emerald-300 text-slate-950 px-3.5 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1 cursor-pointer"
           >
             <Plus className="w-4 h-4" /> Manuel Plan Ekle
           </button>
@@ -196,7 +196,7 @@ export default function TrainingCalendar({
               type="date"
               value={formDate}
               onChange={(e) => setFormDate(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-800 text-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-indigo-500"
+              className="w-full bg-slate-900 border border-slate-800 text-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-emerald-400"
               required
             />
           </div>
@@ -207,7 +207,7 @@ export default function TrainingCalendar({
               value={formSessionName}
               onChange={(e) => setFormSessionName(e.target.value)}
               placeholder="Örn: Göğüs & Biceps Günü"
-              className="w-full bg-slate-900 border border-slate-800 text-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-indigo-500"
+              className="w-full bg-slate-900 border border-slate-800 text-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-emerald-400"
               disabled={formStatus === 'rest_day'}
             />
           </div>
@@ -216,7 +216,7 @@ export default function TrainingCalendar({
             <select
               value={formStatus}
               onChange={(e) => setFormStatus(e.target.value as any)}
-              className="w-full bg-slate-900 border border-slate-800 text-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-indigo-500"
+              className="w-full bg-slate-900 border border-slate-800 text-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-emerald-400"
             >
               <option value="planned">Planlandı</option>
               <option value="completed">Tamamlandı</option>
@@ -226,14 +226,14 @@ export default function TrainingCalendar({
           <div className="flex gap-2">
             <button
               type="submit"
-              className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2 px-4 rounded-lg text-xs transition-all"
+              className="flex-1 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black py-2 px-4 rounded-lg text-xs transition-all cursor-pointer"
             >
               Ekle
             </button>
             <button
               type="button"
               onClick={() => setIsAddOpen(false)}
-              className="bg-slate-900 border border-slate-800 text-slate-400 px-3 py-2 rounded-lg text-xs hover:text-white"
+              className="bg-slate-900 border border-slate-800 text-slate-400 px-3 py-2 rounded-lg text-xs hover:text-white cursor-pointer"
             >
               İptal
             </button>
@@ -303,7 +303,7 @@ export default function TrainingCalendar({
                           ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                           : entry.status === 'rest_day'
                           ? 'bg-slate-800 text-slate-400 border border-slate-700/50'
-                          : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                          : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                       }`}
                     >
                       <span className="truncate font-medium max-w-[45px] sm:max-w-none flex items-center gap-1">

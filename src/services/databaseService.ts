@@ -298,12 +298,11 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
     operationType,
     path,
   };
+  console.error('Firestore işlem hatası:', error);
   const errMsg = error instanceof Error ? error.message : String(error);
   if (errMsg.toLowerCase().includes('permission') || errMsg.toLowerCase().includes('insufficient')) {
-    console.error('Firestore permission/write error:', error);
     throw new Error('Firebase izni reddetti. Lütfen oturumunuzu yenileyip tekrar deneyin.');
   }
-  console.error('Firestore Error Occurred: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
 
@@ -342,6 +341,9 @@ export const databaseService = {
 
   // --- WORKOUTS ---
   async saveWorkout(workout: Workout, userId: string): Promise<void> {
+    if (!userId || userId.trim() === '') {
+      throw new Error('Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.');
+    }
     const cleanWorkout = normalizeWorkout(workout, userId);
     // Explicit notes check
     if (cleanWorkout.notes === undefined || cleanWorkout.notes === null) {
@@ -459,6 +461,9 @@ export const databaseService = {
 
   // --- WEIGHT ENTRIES ---
   async saveWeightEntry(entry: WeightEntry, userId: string): Promise<void> {
+    if (!userId || userId.trim() === '') {
+      throw new Error('Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.');
+    }
     const entryId = entry.id || Math.random().toString(36).substring(2, 9);
     const path = `weightEntries/${entryId}`;
     const cleanEntry = {
@@ -581,6 +586,9 @@ export const databaseService = {
 
   // --- MEAL ENTRIES ---
   async saveMealEntry(meal: MealEntry, userId: string): Promise<void> {
+    if (!userId || userId.trim() === '') {
+      throw new Error('Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.');
+    }
     const mealId = meal.id || Math.random().toString(36).substring(2, 9);
     const path = `mealEntries/${mealId}`;
     const normalized = normalizeMeal(meal);
@@ -638,6 +646,9 @@ export const databaseService = {
 
   // --- WATER ENTRIES ---
   async saveWaterEntries(entries: WaterEntry[], userId: string): Promise<void> {
+    if (!userId || userId.trim() === '') {
+      throw new Error('Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.');
+    }
     const path = `waterEntries`;
     try {
       // Since waterEntries are stored per-date in a denormalized way, let's write them individually
@@ -656,6 +667,9 @@ export const databaseService = {
   },
 
   async saveSingleWaterEntry(date: string, amountMl: number, userId: string): Promise<void> {
+    if (!userId || userId.trim() === '') {
+      throw new Error('Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.');
+    }
     const id = `${userId}_${date}`;
     const path = `waterEntries/${id}`;
     const cleanEntry = {
@@ -704,6 +718,9 @@ export const databaseService = {
   },
 
   async connectToCoach(athleteId: string, coachId: string): Promise<void> {
+    if (!athleteId || athleteId.trim() === '' || !coachId || coachId.trim() === '') {
+      throw new Error('Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.');
+    }
     const athletePath = `users/${athleteId}`;
     const relationPath = `coachAthleteRelations/${coachId}_${athleteId}`;
     try {
@@ -722,6 +739,9 @@ export const databaseService = {
   },
 
   async disconnectFromCoach(athleteId: string, coachId: string): Promise<void> {
+    if (!athleteId || athleteId.trim() === '' || !coachId || coachId.trim() === '') {
+      throw new Error('Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.');
+    }
     const athletePath = `users/${athleteId}`;
     const relationPath = `coachAthleteRelations/${coachId}_${athleteId}`;
     try {
@@ -829,6 +849,9 @@ export const databaseService = {
 
   // --- COACH NOTES ---
   async saveCoachNote(note: { id: string; coachId: string; athleteId: string; title: string; note: string; createdAt: string }): Promise<void> {
+    if (!note || !note.coachId || note.coachId.trim() === '') {
+      throw new Error('Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.');
+    }
     const path = `coachNotes/${note.id}`;
     const cleanNote = {
       id: note.id,
@@ -876,6 +899,9 @@ export const databaseService = {
 
   // --- COACH GOALS ---
   async saveCoachGoal(goal: { id: string; coachId: string; athleteId: string; goalType: string; title: string; description?: string; targetValue?: string; deadline?: string; status: 'pending' | 'completed' | 'cancelled'; createdAt: string }): Promise<void> {
+    if (!goal || !goal.coachId || goal.coachId.trim() === '') {
+      throw new Error('Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.');
+    }
     const path = `coachGoals/${goal.id}`;
     const cleanGoal = {
       id: goal.id,
@@ -985,6 +1011,9 @@ export const databaseService = {
 
   // --- FAVORITE MEALS ---
   async saveFavoriteMeal(meal: FavoriteMeal): Promise<void> {
+    if (!meal || !meal.userId || meal.userId.trim() === '') {
+      throw new Error('Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.');
+    }
     const id = meal.id || Math.random().toString(36).substring(2, 9);
     const path = `favoriteMeals/${id}`;
     const clean = {
@@ -1026,6 +1055,9 @@ export const databaseService = {
 
   // --- WATER ENTRIES REDESIGNED ---
   async saveWaterEntry(entry: WaterEntry): Promise<void> {
+    if (!entry || !entry.userId || entry.userId.trim() === '') {
+      throw new Error('Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.');
+    }
     const id = entry.id || Math.random().toString(36).substring(2, 9);
     const path = `waterEntries/${id}`;
     const clean = {
@@ -1051,6 +1083,9 @@ export const databaseService = {
 
   // --- NUTRITION COACH NOTES ---
   async saveNutritionCoachNote(note: NutritionCoachNote): Promise<void> {
+    if (!note || !note.coachId || note.coachId.trim() === '') {
+      throw new Error('Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.');
+    }
     const id = note.id || Math.random().toString(36).substring(2, 9);
     const path = `nutritionCoachNotes/${id}`;
     const clean = {
@@ -1092,6 +1127,9 @@ export const databaseService = {
 
   // --- NUTRITION DAY STATUS ---
   async saveNutritionDayStatus(status: NutritionDayStatus): Promise<void> {
+    if (!status || !status.userId || status.userId.trim() === '') {
+      throw new Error('Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.');
+    }
     const id = `${status.userId}_${status.date}`;
     const path = `nutritionDayStatuses/${id}`;
     const clean = {
@@ -1352,11 +1390,13 @@ export const databaseService = {
     if (!entry || !entry.userId || entry.userId.trim() === '') {
       throw new Error('Bu işlem için kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.');
     }
-    const id = `${entry.userId}_${entry.date}`;
+    const entryDate = entry.date || new Date().toISOString().split('T')[0];
+    const id = `${entry.userId}_${entryDate}`;
     const path = `recoveryEntries/${id}`;
     const clean = {
       ...entry,
       id,
+      date: entryDate,
       createdAt: entry.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
