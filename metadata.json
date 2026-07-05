@@ -1,0 +1,8 @@
+{
+  "name": "FitTrack AI",
+  "description": "Gizli ve anonim kullanılabilen, premium görünümlü, zengin grafikli fitness, kilo, su, vücut ölçüsü ve beslenme takip uygulaması.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

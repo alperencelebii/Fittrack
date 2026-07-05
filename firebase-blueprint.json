@@ -1,0 +1,192 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile with role-based attributes for athletes and coaches",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "User unique identifier" },
+        "email": { "type": "string", "description": "User email address" },
+        "role": { "type": "string", "enum": ["athlete", "coach"], "description": "User role" },
+        "name": { "type": "string", "description": "Full name of the user" },
+        "height": { "type": "number", "description": "Height in cm" },
+        "currentWeight": { "type": "number", "description": "Current weight in kg" },
+        "targetWeight": { "type": "number", "description": "Target weight in kg" },
+        "dailyCalorieGoal": { "type": "integer", "description": "Daily caloric intake goal" },
+        "dailyWaterGoal": { "type": "integer", "description": "Daily water intake goal in ml" },
+        "coachId": { "type": "string", "description": "Assigned coach ID if athlete" },
+        "inviteCode": { "type": "string", "description": "Unique join code generated for coaches" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "email", "role", "name"]
+    },
+    "Workout": {
+      "title": "Workout Entry",
+      "description": "Athlete workout record history",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "type": { "type": "string" },
+        "duration": { "type": "integer" },
+        "caloriesBurned": { "type": "integer" },
+        "difficulty": { "type": "string" },
+        "notes": { "type": "string" },
+        "exercises": { "type": "array" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "name", "date", "type", "duration", "caloriesBurned", "difficulty"]
+    },
+    "WeightEntry": {
+      "title": "Weight Entry",
+      "description": "Athlete physical weight log tracking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "weight": { "type": "number" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "date", "weight"]
+    },
+    "BodyMeasurement": {
+      "title": "Body Measurement",
+      "description": "Athlete bodily measurements progress tracking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "waist": { "type": "number" },
+        "chest": { "type": "number" },
+        "arm": { "type": "number" },
+        "shoulder": { "type": "number" },
+        "hip": { "type": "number" },
+        "leg": { "type": "number" },
+        "neck": { "type": "number" },
+        "bodyFat": { "type": "number" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "date"]
+    },
+    "MealEntry": {
+      "title": "Meal Entry",
+      "description": "Athlete daily nutritional consumption record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "mealType": { "type": "string" },
+        "foodName": { "type": "string" },
+        "calories": { "type": "integer" },
+        "protein": { "type": "integer" },
+        "carbs": { "type": "integer" },
+        "fat": { "type": "integer" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "date", "mealType", "foodName", "calories", "protein", "carbs", "fat"]
+    },
+    "WaterEntry": {
+      "title": "Water Entry",
+      "description": "Athlete water consumption tracking log",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "amountMl": { "type": "integer" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "date", "amountMl"]
+    },
+    "CoachNote": {
+      "title": "Coach Note",
+      "description": "Private trainer logs and tips left for athletes",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "coachId": { "type": "string" },
+        "athleteId": { "type": "string" },
+        "title": { "type": "string" },
+        "note": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "coachId", "athleteId", "title", "note", "createdAt"]
+    },
+    "CoachGoal": {
+      "title": "Coach Goal",
+      "description": "Physical, health or nutritional goals assigned to athletes by their relative coaches",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "coachId": { "type": "string" },
+        "athleteId": { "type": "string" },
+        "goalType": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "targetValue": { "type": "string" },
+        "deadline": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "completed", "cancelled"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "coachId", "athleteId", "goalType", "title", "status", "createdAt"]
+    },
+    "CoachAthleteRelation": {
+      "title": "Coach Athlete Relation",
+      "description": "Relational record storing linkage between a coach and an assigned active athlete",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "coachId": { "type": "string" },
+        "athleteId": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "coachId", "athleteId"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles for login"
+    },
+    "/workouts/{workoutId}": {
+      "schema": "Workout",
+      "description": "Workouts logging"
+    },
+    "/weightEntries/{weightEntryId}": {
+      "schema": "WeightEntry",
+      "description": "Weight history logs"
+    },
+    "/bodyMeasurements/{measurementId}": {
+      "schema": "BodyMeasurement",
+      "description": "Body dynamic dimensions logs"
+    },
+    "/mealEntries/{mealEntryId}": {
+      "schema": "MealEntry",
+      "description": "Nutritional intake logging"
+    },
+    "/waterEntries/{waterEntryId}": {
+      "schema": "WaterEntry",
+      "description": "Water logging tracking"
+    },
+    "/coachNotes/{noteId}": {
+      "schema": "CoachNote",
+      "description": "Private advice/notes written by coaches for their connected athletes"
+    },
+    "/coachGoals/{goalId}": {
+      "schema": "CoachGoal",
+      "description": "Structured target goals with deadline defined by advisor/coach"
+    },
+    "/coachAthleteRelations/{relationId}": {
+      "schema": "CoachAthleteRelation",
+      "description": "Explicit connection document mapping coaches and athletes"
+    }
+  }
+}
