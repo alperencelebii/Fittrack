@@ -51,7 +51,12 @@ import {
   AlertCircle,
   Loader2,
   Heart,
-  Award
+  Award,
+  Calendar,
+  Search,
+  Filter,
+  X,
+  Archive
 } from 'lucide-react';
 
 interface AthleteDetailsViewProps {
@@ -126,6 +131,7 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
   const [filterMuscle, setFilterMuscle] = useState('');
   const [filterEquipment, setFilterEquipment] = useState('');
   const [activeSessionIndexForAdding, setActiveSessionIndexForAdding] = useState<number | null>(null);
+  const [viewingProgramId, setViewingProgramId] = useState<string | null>(null);
 
   // Synchronize all items on Snapshot listeners
   useEffect(() => {
@@ -1248,6 +1254,453 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
               })()}
             </div>
 
+          </div>
+
+          {/* Coach Assigned Programs & Program Writer section */}
+          <div className="bg-slate-900 border border-slate-850 rounded-2xl p-5 space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h4 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-emerald-400" /> Koç Tarafından Atanan Antrenman Programları
+              </h4>
+              {!isWritingProgram && (
+                <button
+                  onClick={() => {
+                    setIsWritingProgram(true);
+                    setProgSessions([
+                      { dayNumber: 1, name: "1. Gün Antrenmanı", exercises: [] }
+                    ]);
+                  }}
+                  className="px-3 py-1.5 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-extrabold text-[11px] rounded-lg transition cursor-pointer"
+                >
+                  Yeni Program Yaz & Ata
+                </button>
+              )}
+            </div>
+
+            {/* List of already assigned programs */}
+            {!isWritingProgram && (
+              <div className="space-y-3">
+                {(() => {
+                  const coachPrograms = trainingPrograms.filter(p => p.createdBy === 'coach');
+                  if (coachPrograms.length === 0) {
+                    return (
+                      <p className="text-xs text-slate-500 italic py-4">Bu sporcuya henüz program atanmadı.</p>
+                    );
+                  }
+                  return (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {coachPrograms.map(p => {
+                        const isThisActive = p.isActive;
+                        const isViewing = viewingProgramId === p.id;
+                        return (
+                          <div key={p.id} className={`p-4 rounded-xl border transition ${isThisActive ? 'bg-emerald-500/5 border-emerald-500/30' : 'bg-slate-950/45 border-slate-850'}`}>
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="px-1.5 py-0.5 bg-slate-900 text-slate-400 text-[8px] font-bold uppercase rounded border border-slate-800">
+                                    Koç Programı
+                                  </span>
+                                  <span className={`px-1.5 py-0.5 text-[8px] font-black uppercase rounded ${
+                                    p.status === 'active' || isThisActive ? 'bg-emerald-400/20 text-emerald-400' :
+                                    p.status === 'archived' ? 'bg-rose-400/20 text-rose-400' :
+                                    'bg-amber-400/20 text-amber-400'
+                                  }`}>
+                                    {isThisActive ? 'AKTİF' : p.status === 'assigned' ? 'ATANDI' : p.status === 'archived' ? 'ARŞİVLENDİ' : (p.status || 'ATANDI').toUpperCase()}
+                                  </span>
+                                </div>
+                                <h5 className="text-xs font-bold text-white mt-1.5">{p.name}</h5>
+                              </div>
+                              <span className="text-[10px] text-slate-400 font-mono font-semibold">
+                                {p.weeklyDays || p.sessions?.length || 0} Gün / {p.durationWeeks || 8} Hafta
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 mt-3 text-[10px] text-slate-400">
+                              <div><span className="text-slate-500">Hedef:</span> <span className="font-bold text-slate-300">{p.goal}</span></div>
+                              <div><span className="text-slate-500">Seviye:</span> <span className="font-bold text-slate-300">{p.level}</span></div>
+                            </div>
+
+                            {p.coachNote && (
+                              <p className="mt-2.5 text-[10.5px] text-slate-400 bg-slate-950 p-2 rounded border border-slate-900 italic">
+                                "{p.coachNote}"
+                              </p>
+                            )}
+
+                            {/* View Sessions Toggle */}
+                            {isViewing && p.sessions && (
+                              <div className="mt-3 pt-3 border-t border-slate-900 space-y-2.5 max-h-64 overflow-y-auto pr-1">
+                                {p.sessions.map((s: any, sIdx: number) => (
+                                  <div key={sIdx} className="bg-slate-950 p-2.5 rounded-lg border border-slate-900">
+                                    <span className="text-[9px] font-extrabold text-emerald-400 uppercase tracking-wider block">{s.name || `${sIdx+1}. Gün`}</span>
+                                    <div className="mt-1.5 space-y-1">
+                                      {s.exercises?.map((ex: any, eIdx: number) => (
+                                        <div key={eIdx} className="text-[11px] text-slate-300 flex justify-between gap-2 border-b border-slate-900/40 pb-1 last:border-0 last:pb-0">
+                                          <span className="font-medium text-slate-200">{ex.name}</span>
+                                          <span className="text-slate-450 font-mono text-[10px]">
+                                            {ex.sets}x{ex.reps} {ex.restSeconds ? `| ${ex.restSeconds}s` : ''} {ex.rpe ? `| RPE ${ex.rpe}` : ''}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            <div className="flex gap-2 mt-4 pt-3 border-t border-slate-900/60">
+                              <button
+                                type="button"
+                                onClick={() => setViewingProgramId(isViewing ? null : p.id)}
+                                className="flex-1 py-1 bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white font-bold text-[10px] rounded-lg transition cursor-pointer"
+                              >
+                                {isViewing ? "Detayları Kapat" : "İçeriği & Detayları Gör"}
+                              </button>
+                              {p.status !== 'archived' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleArchiveProgram(p.id)}
+                                  className="px-2.5 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-bold text-[10px] rounded-lg transition cursor-pointer"
+                                  title="Arşive Gönder"
+                                >
+                                  Arşivle
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            {/* Program Writer Form */}
+            {isWritingProgram && (
+              <form onSubmit={handleAssignProgram} className="p-4 bg-slate-950 rounded-xl border border-slate-850 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-900 pb-2">
+                  <span className="text-[11px] font-black uppercase text-emerald-400 tracking-wider">YENİ ANTRENMAN PROGRAMI OLUŞTURMA</span>
+                  <button
+                    type="button"
+                    onClick={() => setIsWritingProgram(false)}
+                    className="p-1 text-slate-400 hover:text-white rounded hover:bg-slate-900 transition"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                  <div className="space-y-1 md:col-span-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">PROGRAM ADI</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Haftalık Güç ve Hipertrofi Programı"
+                      value={progName}
+                      onChange={(e) => setProgName(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">HEDEF</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Kas kazanımı, yağ yakımı, güçlenme..."
+                      value={progGoal}
+                      onChange={(e) => setProgGoal(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">SEVİYE</label>
+                    <select
+                      value={progLevel}
+                      onChange={(e) => setProgLevel(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
+                    >
+                      <option value="Beginner">Beginner (Başlangıç)</option>
+                      <option value="Intermediate">Intermediate (Orta)</option>
+                      <option value="Advanced">Advanced (İleri)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">SÜRE (HAFTA)</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={52}
+                      required
+                      value={progDurationWeeks}
+                      onChange={(e) => setProgDurationWeeks(Number(e.target.value))}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1 md:col-span-3">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">KOÇ NOTU / GENEL TALİMATLAR</label>
+                    <input
+                      type="text"
+                      placeholder="Isınma protokolleri, haftalık progresyon talimatları, rpe detayları..."
+                      value={progCoachNote}
+                      onChange={(e) => setProgCoachNote(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Sessions Section */}
+                <div className="space-y-4 pt-3 border-t border-slate-900">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">PROGRAM SEANSLARI / GÜNLERİ ({progSessions.length} GÜN)</span>
+                    <button
+                      type="button"
+                      onClick={handleAddSession}
+                      className="px-2.5 py-1 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 font-bold text-[10px] rounded transition flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Gün Ekle
+                    </button>
+                  </div>
+
+                  {progSessions.length === 0 ? (
+                    <div className="p-6 text-center border border-dashed border-slate-850 rounded-lg text-slate-500 text-xs">
+                      Lütfen program günleri eklemek için yukarıdaki "Gün Ekle" butonuna tıklayın.
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {progSessions.map((session, sIdx) => (
+                        <div key={sIdx} className="p-3 bg-slate-900 border border-slate-800 rounded-xl space-y-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2 flex-1">
+                              <span className="text-xs font-mono font-bold text-slate-500">GÜN {sIdx + 1}:</span>
+                              <input
+                                type="text"
+                                required
+                                value={session.name}
+                                onChange={(e) => handleUpdateSessionName(sIdx, e.target.value)}
+                                className="bg-slate-950 border border-slate-850 rounded px-2.5 py-1 text-xs text-slate-200 font-bold focus:outline-none focus:border-emerald-500 flex-1 max-w-sm"
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveSession(sIdx)}
+                              className="text-slate-500 hover:text-rose-400 p-1 rounded hover:bg-slate-950 transition"
+                              title="Bu Günü Sil"
+                            >
+                              <Trash className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          {/* Exercise List in Session */}
+                          <div className="space-y-2">
+                            {session.exercises.length === 0 ? (
+                              <p className="text-[10px] text-slate-500 italic pl-1">Henüz egzersiz eklenmedi.</p>
+                            ) : (
+                              <div className="space-y-2">
+                                <div className="hidden sm:grid sm:grid-cols-12 gap-2 px-2 text-[9px] font-bold text-slate-500 uppercase tracking-wider">
+                                  <div className="col-span-4">EGZERSİZ</div>
+                                  <div className="col-span-1 text-center">SET</div>
+                                  <div className="col-span-1 text-center">REPS / TEKRAR</div>
+                                  <div className="col-span-1.5 text-center">DİNLENME (sn)</div>
+                                  <div className="col-span-1 text-center">RPE</div>
+                                  <div className="col-span-3">NOTLAR</div>
+                                  <div className="col-span-0.5"></div>
+                                </div>
+
+                                {session.exercises.map((ex: any, eIdx: number) => (
+                                  <div key={eIdx} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center bg-slate-950 p-2 rounded-lg border border-slate-850">
+                                    <div className="col-span-4 font-bold text-xs text-slate-200 truncate pl-1">
+                                      {ex.name}
+                                    </div>
+                                    <div className="col-span-1">
+                                      <input
+                                        type="number"
+                                        min={1}
+                                        required
+                                        value={ex.sets}
+                                        onChange={(e) => handleUpdateExerciseInSession(sIdx, eIdx, 'sets', Number(e.target.value))}
+                                        className="w-full bg-slate-900 border border-slate-800 rounded px-1.5 py-1 text-center text-xs text-slate-200 focus:outline-none"
+                                        placeholder="Set"
+                                      />
+                                    </div>
+                                    <div className="col-span-1">
+                                      <input
+                                        type="text"
+                                        required
+                                        value={ex.reps}
+                                        onChange={(e) => handleUpdateExerciseInSession(sIdx, eIdx, 'reps', e.target.value)}
+                                        className="w-full bg-slate-900 border border-slate-800 rounded px-1.5 py-1 text-center text-xs text-slate-200 focus:outline-none"
+                                        placeholder="Tekrar"
+                                      />
+                                    </div>
+                                    <div className="col-span-1.5">
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        required
+                                        value={ex.restSeconds}
+                                        onChange={(e) => handleUpdateExerciseInSession(sIdx, eIdx, 'restSeconds', Number(e.target.value))}
+                                        className="w-full bg-slate-900 border border-slate-800 rounded px-1.5 py-1 text-center text-xs text-slate-200 focus:outline-none"
+                                        placeholder="Dinlenme"
+                                      />
+                                    </div>
+                                    <div className="col-span-1">
+                                      <input
+                                        type="text"
+                                        value={ex.rpe || ''}
+                                        onChange={(e) => handleUpdateExerciseInSession(sIdx, eIdx, 'rpe', e.target.value)}
+                                        className="w-full bg-slate-900 border border-slate-800 rounded px-1.5 py-1 text-center text-xs text-slate-200 focus:outline-none"
+                                        placeholder="RPE"
+                                      />
+                                    </div>
+                                    <div className="col-span-3">
+                                      <input
+                                        type="text"
+                                        value={ex.notes || ''}
+                                        onChange={(e) => handleUpdateExerciseInSession(sIdx, eIdx, 'notes', e.target.value)}
+                                        className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-slate-200 focus:outline-none"
+                                        placeholder="Egzersiz notu..."
+                                      />
+                                    </div>
+                                    <div className="col-span-0.5 text-right">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveExerciseFromSession(sIdx, eIdx)}
+                                        className="text-slate-500 hover:text-rose-400 p-1"
+                                      >
+                                        <X className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Exercise Selector Trigger */}
+                          <div className="pt-2 border-t border-slate-950">
+                            {activeSessionIndexForAdding === sIdx ? (
+                              <div className="p-3 bg-slate-950 rounded-xl border border-slate-850 space-y-3">
+                                <div className="flex items-center justify-between border-b border-slate-900 pb-2">
+                                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                                    <Search className="w-3.5 h-3.5" /> EGZERSİZ KÜTÜPHANESİNDE ARA
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setActiveSessionIndexForAdding(null)}
+                                    className="text-xs text-slate-400 hover:text-white font-semibold"
+                                  >
+                                    Aramayı Kapat
+                                  </button>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                                  <input
+                                    type="text"
+                                    placeholder="Egzersiz adı ile ara..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
+                                  />
+
+                                  <select
+                                    value={filterMuscle}
+                                    onChange={(e) => setFilterMuscle(e.target.value)}
+                                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
+                                  >
+                                    <option value="">Kas Grubu Filtresi (Tümü)</option>
+                                    {allMuscles.map(m => (
+                                      <option key={m} value={m}>{m.toUpperCase()}</option>
+                                    ))}
+                                  </select>
+
+                                  <select
+                                    value={filterEquipment}
+                                    onChange={(e) => setFilterEquipment(e.target.value)}
+                                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
+                                  >
+                                    <option value="">Ekipman Filtresi (Tümü)</option>
+                                    {allEquipments.map(e => (
+                                      <option key={e} value={e}>{e.toUpperCase()}</option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                {/* Results display */}
+                                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                                  {filteredExercises.length === 0 ? (
+                                    <p className="text-[11px] text-slate-500 italic py-2">Kriterlere uygun egzersiz bulunamadı.</p>
+                                  ) : (
+                                    filteredExercises.slice(0, 8).map(ex => (
+                                      <div key={ex.id} className="p-2 bg-slate-900 border border-slate-850 rounded-lg flex items-center justify-between gap-3 hover:border-slate-700 transition">
+                                        <div className="min-w-0">
+                                          <span className="font-bold text-xs text-slate-200 block truncate">{ex.name}</span>
+                                          <div className="flex gap-1.5 items-center mt-0.5 text-[9px] text-slate-500">
+                                            <span>Primary: <strong className="text-slate-400">{(ex.primaryMuscles || []).join(', ')}</strong></span>
+                                            <span>•</span>
+                                            <span>Ekipman: <strong className="text-slate-400">{Array.isArray(ex.equipment) ? ex.equipment.join(', ') : ex.equipment}</strong></span>
+                                          </div>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleAddExerciseToSession(sIdx, ex)}
+                                          className="px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-extrabold text-[10px] rounded"
+                                        >
+                                          Seç & Ekle
+                                        </button>
+                                      </div>
+                                    ))
+                                  )}
+                                  {filteredExercises.length > 8 && (
+                                    <p className="text-[9px] text-slate-500 text-center italic mt-1">Daha spesifik arama yaparak diğer egzersizleri görebilirsiniz.</p>
+                                  )}
+                                </div>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveSessionIndexForAdding(sIdx);
+                                  setSearchQuery('');
+                                  setFilterMuscle('');
+                                  setFilterEquipment('');
+                                }}
+                                className="py-1.5 bg-slate-950 hover:bg-slate-900 text-slate-400 hover:text-white font-bold text-[10.5px] rounded-lg border border-slate-850 border-dashed w-full transition flex items-center justify-center gap-1"
+                              >
+                                <Plus className="w-3.5 h-3.5" /> Bu Güne Egzersiz Ekle
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-3 pt-4 border-t border-slate-900 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setIsWritingProgram(false)}
+                    className="px-4 py-2 bg-slate-900 hover:bg-slate-850 text-slate-400 hover:text-white text-xs font-bold rounded-xl transition cursor-pointer"
+                  >
+                    Vazgeç
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={programSubmitting}
+                    className="px-5 py-2 bg-emerald-400 hover:bg-emerald-300 disabled:opacity-50 text-slate-950 font-black text-xs rounded-xl transition cursor-pointer inline-flex items-center gap-1.5"
+                  >
+                    {programSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                    {programSubmitting ? "Program Kaydediliyor..." : "Antrenman Programını Sporcuya Ata"}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
 
           {/* Row 2: PR & Power tracking & Progressive Overload suggestions */}

@@ -18,9 +18,10 @@ service cloud.firestore {
 
     function isMyCoach(athleteId) {
       return isSignedIn() && (
-        exists(/databases/$(database)/documents/users/$(athleteId)) &&
-        'coachId' in get(/databases/$(database)/documents/users/$(athleteId)).data &&
-        get(/databases/$(database)/documents/users/$(athleteId)).data.coachId == request.auth.uid
+        (exists(/databases/$(database)/documents/users/$(athleteId)) &&
+         'coachId' in get(/databases/$(database)/documents/users/$(athleteId)).data &&
+         get(/databases/$(database)/documents/users/$(athleteId)).data.coachId == request.auth.uid) ||
+        exists(/databases/$(database)/documents/coachAthleteRelations/$(request.auth.uid)_$(athleteId))
       );
     }
 

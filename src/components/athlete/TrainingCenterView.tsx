@@ -22,6 +22,7 @@ import ProgressPhotosView from './ProgressPhotosView';
 import ExerciseLibraryView from './ExerciseLibraryView';
 import MuscleVolumeCharts from './MuscleVolumeCharts';
 import ProgressReportGenerator from './ProgressReportGenerator';
+import CoachProgramsView from './CoachProgramsView';
 
 import { 
   Sparkles, 
@@ -32,7 +33,8 @@ import {
   BookOpen, 
   BarChart3, 
   FileDown, 
-  Loader2 
+  Loader2,
+  User
 } from 'lucide-react';
 
 interface TrainingCenterViewProps {
@@ -40,11 +42,11 @@ interface TrainingCenterViewProps {
   workouts: Workout[]; // Pass primary workouts list for report stats
 }
 
-type SubTabType = 'generator' | 'calendar' | 'pr' | 'recovery' | 'photos' | 'library' | 'volume' | 'report';
+type SubTabType = 'coach_programs' | 'generator' | 'calendar' | 'pr' | 'recovery' | 'photos' | 'library' | 'volume' | 'report';
 
 export default function TrainingCenterView({ onShowToast, workouts }: TrainingCenterViewProps) {
   const { currentUser, userProfile } = useAuth();
-  const [activeSubTab, setActiveSubTab] = useState<SubTabType>('generator');
+  const [activeSubTab, setActiveSubTab] = useState<SubTabType>('coach_programs');
   const [loading, setLoading] = useState(true);
 
   // Core Data States
@@ -102,6 +104,7 @@ export default function TrainingCenterView({ onShowToast, workouts }: TrainingCe
   }
 
   const subTabs = [
+    { id: 'coach_programs', label: 'Koçumun Programları', icon: User },
     { id: 'generator', label: 'AI Program', icon: Sparkles },
     { id: 'calendar', label: 'Antrenman Takvimi', icon: Calendar },
     { id: 'pr', label: 'PR / Güç Takibi', icon: TrendingUp },
@@ -150,6 +153,14 @@ export default function TrainingCenterView({ onShowToast, workouts }: TrainingCe
 
       {/* ACTIVE SUB TAB CONTENT */}
       <div className="mt-6">
+        {activeSubTab === 'coach_programs' && (
+          <CoachProgramsView 
+            userId={currentUser?.uid || ''} 
+            programs={programs}
+            onShowToast={onShowToast}
+          />
+        )}
+
         {activeSubTab === 'generator' && (
           <TrainingProgramGenerator 
             userId={currentUser?.uid || ''} 
