@@ -530,9 +530,39 @@ const customFitTrackExercises: ExerciseLibraryItem[] = [
 
 export const freeExerciseDbExercises = adaptFreeExercises(freeExerciseDbRaw);
 
-export const exerciseLibrary = [
-  ...customFitTrackExercises,
-  ...freeExerciseDbExercises
-];
+// Merge customFitTrackExercises with freeExerciseDbExercises and deduplicate by ID
+const mergedExercises = [...customFitTrackExercises];
+const customIds = new Set(mergedExercises.map(ex => ex.id));
+for (const ex of freeExerciseDbExercises) {
+  if (!customIds.has(ex.id)) {
+    mergedExercises.push(ex);
+  }
+}
 
-export const EXERCISE_LIBRARY: ExerciseLibraryItem[] = exerciseLibrary;
+export const EXERCISE_LIBRARY: ExerciseLibraryItem[] = mergedExercises;
+export const exerciseLibrary = EXERCISE_LIBRARY;
+
+export function getAllExercises() {
+  return EXERCISE_LIBRARY;
+}
+
+export function getExerciseById(id: string) {
+  return EXERCISE_LIBRARY.find(ex => ex.id === id);
+}
+
+export function searchExercises(query: string) {
+  const normalized = query.toLowerCase().trim();
+
+  if (!normalized) return EXERCISE_LIBRARY;
+
+  return EXERCISE_LIBRARY.filter(ex =>
+    ex.name?.toLowerCase().includes(normalized) ||
+    ex.primaryMuscles?.some(m => m.toLowerCase().includes(normalized)) ||
+    ex.secondaryMuscles?.some(m => m.toLowerCase().includes(normalized)) ||
+    (Array.isArray(ex.equipment) 
+      ? ex.equipment.some((eq: string) => eq.toLowerCase().includes(normalized)) 
+      : typeof ex.equipment === 'string' && (ex.equipment as string).toLowerCase().includes(normalized)) ||
+    (ex as any).bodyPart?.toLowerCase().includes(normalized) ||
+    (ex as any).target?.toLowerCase().includes(normalized)
+  );
+}

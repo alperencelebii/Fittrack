@@ -370,7 +370,7 @@ export type ExerciseLibraryItem = {
   secondaryMuscles: string[];
   equipment: EquipmentType[];
   difficulty: TrainingLevel;
-  instructions: string[];
+  instructions: string[] | { en: string[] } | any;
   commonMistakes: string[];
   safetyTips: string[];
   alternatives: string[];

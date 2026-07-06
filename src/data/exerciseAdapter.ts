@@ -8,8 +8,12 @@ export interface FitTrackExercise extends Omit<ExerciseLibraryItem, 'instruction
   mechanic?: 'compound' | 'isolation';
   source: 'custom' | 'free-exercise-db';
   primaryMuscle: string;
-  instructions: string[] & { en?: string[] };
+  instructions: { en: string[] } | any;
   level: 'beginner' | 'intermediate' | 'advanced';
+  targetMuscle?: string;
+  muscleGroup?: string;
+  description?: string;
+  instructionsText?: string;
 }
 
 const MUSCLE_TRANSLATIONS: Record<string, { tr: string; altTr?: string; en: string; all: string[] }> = {
@@ -359,8 +363,8 @@ export function adaptFreeExercises(rawExercises: unknown): FitTrackExercise[] {
     }
 
     // Attach .en to instructions array
-    const instructionsArr = [...ex.instructions] as string[] & { en?: string[] };
-    instructionsArr.en = instructionsArr;
+    const instructionsArr = [...ex.instructions] as any;
+    instructionsArr.en = [...ex.instructions];
 
     return {
       id: ex.id,
@@ -391,7 +395,12 @@ export function adaptFreeExercises(rawExercises: unknown): FitTrackExercise[] {
       target,
       force,
       mechanic,
-      primaryMuscle: translatedPrimary.tr
+      primaryMuscle: translatedPrimary.tr,
+      // Alias fields for compatibility with other views
+      targetMuscle: target,
+      muscleGroup: bodyPart,
+      description: ex.name,
+      instructionsText: ex.instructions.join('\n')
     };
   });
 }
