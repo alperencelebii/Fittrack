@@ -517,56 +517,97 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
       onShowToast("Lütfen geçerli bir program adı girin.");
       return;
     }
-    if (progSessions.length === 0) {
-      onShowToast("Program oluşturmak için en az 1 gün eklemelisiniz.");
+    
+    // Check if sessions list is empty or if all sessions have 0 exercises
+    const hasAnyExercise = progSessions.some(session => session.exercises && session.exercises.length > 0);
+    if (progSessions.length === 0 || !hasAnyExercise) {
+      onShowToast("En az bir gün ve egzersiz eklemelisiniz.");
       return;
     }
 
     setProgramSubmitting(true);
 
-    const programData = {
+    // Deep sanitizer function to remove undefined/NaN values
+    const removeUndefinedDeep = (obj: any): any => {
+      if (obj === undefined || obj === null) return '';
+      if (typeof obj === 'number') {
+        if (Number.isNaN(obj) || !Number.isFinite(obj)) return 0;
+        return obj;
+      }
+      if (typeof obj === 'string') return obj;
+      if (typeof obj === 'boolean') return obj;
+      if (obj instanceof Date) return obj.toISOString();
+      if (Array.isArray(obj)) {
+        return obj
+          .map(item => removeUndefinedDeep(item))
+          .filter(item => item !== undefined && item !== null);
+      }
+      if (typeof obj === 'object') {
+        const cleaned: any = {};
+        for (const [k, v] of Object.entries(obj)) {
+          cleaned[k] = removeUndefinedDeep(v);
+        }
+        return cleaned;
+      }
+      return obj;
+    };
+
+    const programDataRaw = {
       id: `cp_${Math.random().toString(36).substring(2, 9)}`,
       name: progName.trim(),
       goal: progGoal,
       level: progLevel,
       weeklyDays: progSessions.length,
       durationWeeks: Number(progDurationWeeks) || 8,
-      sessions: progSessions.map((session, sIdx) => ({
-        dayNumber: sIdx + 1,
-        name: session.name,
-        exercises: session.exercises.map((ex: any) => ({
-          id: ex.id,
-          name: ex.name,
-          sets: Number(ex.sets) || 3,
-          reps: Number(ex.reps) || 10,
-          restSeconds: Number(ex.restSeconds) || 60,
-          rpe: ex.rpe ? Number(ex.rpe) : undefined,
-          notes: ex.notes || ''
-        }))
-      })),
-      days: progSessions.map((session, sIdx) => ({
-        dayNumber: sIdx + 1,
-        name: session.name,
-        exercises: session.exercises.map((ex: any) => ({
-          id: ex.id,
-          name: ex.name,
-          sets: Number(ex.sets) || 3,
-          reps: Number(ex.reps) || 10,
-          restSeconds: Number(ex.restSeconds) || 60,
-          rpe: ex.rpe ? Number(ex.rpe) : undefined,
-          notes: ex.notes || ''
-        }))
-      })),
-      coachNote: progCoachNote.trim() || undefined,
+      userId: athleteId,
+      athleteId: athleteId,
+      assignedToUserId: athleteId,
+      coachId: coachProfile.id,
+      createdBy: 'coach',
+      status: 'assigned',
+      isActive: false,
+      coachNote: progCoachNote.trim() || '',
       equipment: [],
       priorityMuscles: [],
       restrictions: [],
       startDate: new Date().toISOString().split('T')[0],
       endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000 * (Number(progDurationWeeks) || 8)).toISOString().split('T')[0],
+      sessions: progSessions.map((session, sIdx) => ({
+        dayNumber: sIdx + 1,
+        name: session.name || `${sIdx + 1}. Gün Antrenmanı`,
+        exercises: (session.exercises || [])
+          .filter((ex: any) => ex && ex.name && ex.name.trim() !== '')
+          .map((ex: any) => ({
+            id: ex.id || `ex_${Math.random().toString(36).substring(2, 9)}`,
+            name: ex.name,
+            sets: Number(ex.sets) || 3,
+            reps: ex.reps ? String(ex.reps) : '10',
+            restSeconds: Number(ex.restSeconds) || 60,
+            rpe: ex.rpe !== undefined && ex.rpe !== null && String(ex.rpe).trim() !== '' ? String(ex.rpe) : '',
+            notes: ex.notes || ''
+          }))
+      })),
+      days: progSessions.map((session, sIdx) => ({
+        dayNumber: sIdx + 1,
+        name: session.name || `${sIdx + 1}. Gün Antrenmanı`,
+        exercises: (session.exercises || [])
+          .filter((ex: any) => ex && ex.name && ex.name.trim() !== '')
+          .map((ex: any) => ({
+            id: ex.id || `ex_${Math.random().toString(36).substring(2, 9)}`,
+            name: ex.name,
+            sets: Number(ex.sets) || 3,
+            reps: ex.reps ? String(ex.reps) : '10',
+            restSeconds: Number(ex.restSeconds) || 60,
+            rpe: ex.rpe !== undefined && ex.rpe !== null && String(ex.rpe).trim() !== '' ? String(ex.rpe) : '',
+            notes: ex.notes || ''
+          }))
+      }))
     };
 
+    const sanitizedProgramPayload = removeUndefinedDeep(programDataRaw);
+
     try {
-      await databaseService.createCoachAssignedTrainingProgram(coachProfile.id, athleteId, programData);
+      await databaseService.createCoachAssignedTrainingProgram(coachProfile.id, athleteId, sanitizedProgramPayload);
       onShowToast("Program sporcuya başarıyla atandı.");
       // Reset form
       setProgName('Haftalık Güç ve Hipertrofi Programı');
@@ -578,6 +619,9 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
       setIsWritingProgram(false);
     } catch (error) {
       console.error('Koç program atama hatası:', error);
+      console.error('Program payload:', sanitizedProgramPayload);
+      console.error('Coach ID:', coachProfile.id);
+      console.error('Athlete ID:', athleteId);
       onShowToast("Program atanırken bir sorun oluştu.");
     } finally {
       setProgramSubmitting(false);
