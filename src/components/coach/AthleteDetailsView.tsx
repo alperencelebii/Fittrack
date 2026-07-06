@@ -1421,119 +1421,141 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
 
             {/* Program Writer Form */}
             {isWritingProgram && (
-              <form onSubmit={handleAssignProgram} className="p-4 bg-slate-950 rounded-xl border border-slate-850 space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-900 pb-2">
-                  <span className="text-[11px] font-black uppercase text-emerald-400 tracking-wider">YENİ ANTRENMAN PROGRAMI OLUŞTURMA</span>
+              <form onSubmit={handleAssignProgram} className="p-6 bg-slate-950 rounded-2xl border border-slate-800 space-y-6 shadow-2xl relative">
+                {/* Header with gradient touch */}
+                <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-black uppercase text-white tracking-wider block">YENİ ANTRENMAN PROGRAMI OLUŞTURMA</span>
+                      <span className="text-[10px] text-slate-450 block font-medium">Sporcunuza özel hedeflere uygun antrenman seansları ve egzersizleri tasarlayın</span>
+                    </div>
+                  </div>
                   <button
                     type="button"
                     onClick={() => setIsWritingProgram(false)}
-                    className="p-1 text-slate-400 hover:text-white rounded hover:bg-slate-900 transition"
+                    className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-900 transition"
                   >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                  <div className="space-y-1 md:col-span-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">PROGRAM ADI</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Haftalık Güç ve Hipertrofi Programı"
-                      value={progName}
-                      onChange={(e) => setProgName(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
-                    />
+                {/* Step 1: Program General Information Bento Box */}
+                <div className="bg-slate-900/30 border border-slate-850 p-4 rounded-xl space-y-4">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block pb-1 border-b border-slate-800/60">
+                    Genel Program Bilgileri
+                  </span>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="space-y-1.5 md:col-span-2">
+                      <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest block">PROGRAM ADI</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Haftalık Güç ve Hipertrofi Programı"
+                        value={progName}
+                        onChange={(e) => setProgName(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/25 transition-all"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest block">HEDEF</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Kas kazanımı, yağ yakımı, güçlenme..."
+                        value={progGoal}
+                        onChange={(e) => setProgGoal(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/25 transition-all"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest block">SEVİYE</label>
+                      <select
+                        value={progLevel}
+                        onChange={(e) => setProgLevel(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/25 transition-all"
+                      >
+                        <option value="Beginner">Beginner (Başlangıç)</option>
+                        <option value="Intermediate">Intermediate (Orta)</option>
+                        <option value="Advanced">Advanced (İleri)</option>
+                      </select>
+                    </div>
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">HEDEF</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Kas kazanımı, yağ yakımı, güçlenme..."
-                      value={progGoal}
-                      onChange={(e) => setProgGoal(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest block">SÜRE (HAFTA)</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={52}
+                        required
+                        value={progDurationWeeks}
+                        onChange={(e) => setProgDurationWeeks(Number(e.target.value))}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/25 transition-all"
+                      />
+                    </div>
 
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">SEVİYE</label>
-                    <select
-                      value={progLevel}
-                      onChange={(e) => setProgLevel(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
-                    >
-                      <option value="Beginner">Beginner (Başlangıç)</option>
-                      <option value="Intermediate">Intermediate (Orta)</option>
-                      <option value="Advanced">Advanced (İleri)</option>
-                    </select>
+                    <div className="space-y-1.5 md:col-span-3">
+                      <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest block">KOÇ NOTU / GENEL TALİMATLAR</label>
+                      <input
+                        type="text"
+                        placeholder="Isınma protokolleri, haftalık progresyon talimatları, rpe detayları..."
+                        value={progCoachNote}
+                        onChange={(e) => setProgCoachNote(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/25 transition-all"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">SÜRE (HAFTA)</label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={52}
-                      required
-                      value={progDurationWeeks}
-                      onChange={(e) => setProgDurationWeeks(Number(e.target.value))}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none"
-                    />
-                  </div>
-
-                  <div className="space-y-1 md:col-span-3">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">KOÇ NOTU / GENEL TALİMATLAR</label>
-                    <input
-                      type="text"
-                      placeholder="Isınma protokolleri, haftalık progresyon talimatları, rpe detayları..."
-                      value={progCoachNote}
-                      onChange={(e) => setProgCoachNote(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                {/* Sessions Section */}
+                {/* Step 2: Sessions Section */}
                 <div className="space-y-4 pt-3 border-t border-slate-900">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">PROGRAM SEANSLARI / GÜNLERİ ({progSessions.length} GÜN)</span>
+                    <span className="text-[10px] font-black text-slate-450 uppercase tracking-widest">
+                      PROGRAM SEANSLARI / GÜNLERİ ({progSessions.length} GÜN)
+                    </span>
                     <button
                       type="button"
                       onClick={handleAddSession}
-                      className="px-2.5 py-1 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 font-bold text-[10px] rounded transition flex items-center gap-1"
+                      className="px-3 py-1.5 bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-slate-750 text-slate-200 font-extrabold text-[10px] rounded-xl transition flex items-center gap-1 cursor-pointer"
                     >
-                      <Plus className="w-3.5 h-3.5" /> Gün Ekle
+                      <Plus className="w-3.5 h-3.5 text-emerald-400" /> Yeni Gün Ekle
                     </button>
                   </div>
 
                   {progSessions.length === 0 ? (
-                    <div className="p-6 text-center border border-dashed border-slate-850 rounded-lg text-slate-500 text-xs">
-                      Lütfen program günleri eklemek için yukarıdaki "Gün Ekle" butonuna tıklayın.
+                    <div className="p-8 text-center border border-dashed border-slate-850 rounded-2xl text-slate-500 text-xs">
+                      Lütfen program günleri eklemek için yukarıdaki "Yeni Gün Ekle" butonuna tıklayın.
                     </div>
                   ) : (
-                    <div className="space-y-4">
+                    <div className="space-y-5">
                       {progSessions.map((session, sIdx) => (
-                        <div key={sIdx} className="p-3 bg-slate-900 border border-slate-800 rounded-xl space-y-3">
-                          <div className="flex items-center justify-between gap-3">
+                        <div key={sIdx} className="p-4 bg-slate-900/20 border border-slate-850 rounded-2xl space-y-4 shadow-sm">
+                          {/* Day Title Custom Box */}
+                          <div className="flex items-center justify-between gap-3 bg-slate-900/60 p-3 rounded-xl border border-slate-800/80">
                             <div className="flex items-center gap-2 flex-1">
-                              <span className="text-xs font-mono font-bold text-slate-500">GÜN {sIdx + 1}:</span>
+                              <span className="text-[10px] font-bold text-slate-500 font-mono tracking-wider uppercase bg-slate-950 px-2 py-1 rounded border border-slate-850">
+                                GÜN {sIdx + 1}
+                              </span>
                               <input
                                 type="text"
                                 required
                                 value={session.name}
                                 onChange={(e) => handleUpdateSessionName(sIdx, e.target.value)}
-                                className="bg-slate-950 border border-slate-850 rounded px-2.5 py-1 text-xs text-slate-200 font-bold focus:outline-none focus:border-emerald-500 flex-1 max-w-sm"
+                                className="bg-transparent border-0 rounded px-2.5 py-1 text-xs text-slate-100 font-extrabold focus:outline-none focus:ring-1 focus:ring-emerald-500/20 flex-1 max-w-sm"
+                                placeholder={`${sIdx + 1}. Gün Antrenmanı`}
                               />
                             </div>
                             <button
                               type="button"
                               onClick={() => handleRemoveSession(sIdx)}
-                              className="text-slate-500 hover:text-rose-400 p-1 rounded hover:bg-slate-950 transition"
+                              className="text-slate-500 hover:text-rose-450 p-1.5 rounded-lg hover:bg-slate-950 transition cursor-pointer"
                               title="Bu Günü Sil"
                             >
                               <Trash className="w-3.5 h-3.5" />
@@ -1541,25 +1563,27 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
                           </div>
 
                           {/* Exercise List in Session */}
-                          <div className="space-y-2">
+                          <div className="space-y-2.5">
                             {session.exercises.length === 0 ? (
-                              <p className="text-[10px] text-slate-500 italic pl-1">Henüz egzersiz eklenmedi.</p>
+                              <p className="text-[10.5px] text-slate-500 italic pl-2.5 py-2">Henüz bu güne egzersiz atanmadı.</p>
                             ) : (
                               <div className="space-y-2">
-                                <div className="hidden sm:grid sm:grid-cols-12 gap-2 px-2 text-[9px] font-bold text-slate-500 uppercase tracking-wider">
-                                  <div className="col-span-4">EGZERSİZ</div>
-                                  <div className="col-span-1 text-center">SET</div>
-                                  <div className="col-span-1 text-center">REPS / TEKRAR</div>
-                                  <div className="col-span-1.5 text-center">DİNLENME (sn)</div>
+                                {/* Table Header on Larger Screens */}
+                                <div className="hidden sm:grid sm:grid-cols-12 gap-2 px-3 text-[9px] font-black text-slate-500 uppercase tracking-wider">
+                                  <div className="col-span-4">Egzersiz</div>
+                                  <div className="col-span-1 text-center">Set</div>
+                                  <div className="col-span-1 text-center">Tekrar</div>
+                                  <div className="col-span-1.5 text-center">Dinlenme (sn)</div>
                                   <div className="col-span-1 text-center">RPE</div>
-                                  <div className="col-span-3">NOTLAR</div>
+                                  <div className="col-span-3">Notlar / Hedefler</div>
                                   <div className="col-span-0.5"></div>
                                 </div>
 
                                 {session.exercises.map((ex: any, eIdx: number) => (
-                                  <div key={eIdx} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center bg-slate-950 p-2 rounded-lg border border-slate-850">
-                                    <div className="col-span-4 font-bold text-xs text-slate-200 truncate pl-1">
-                                      {ex.name}
+                                  <div key={eIdx} className="grid grid-cols-1 sm:grid-cols-12 gap-2 bg-slate-950/80 p-2.5 rounded-xl border border-slate-850 hover:border-slate-800 transition">
+                                    <div className="col-span-4 font-bold text-xs text-slate-200 truncate pl-1 flex items-center gap-2 min-w-0">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                                      <span className="truncate" title={ex.name}>{ex.name}</span>
                                     </div>
                                     <div className="col-span-1">
                                       <input
@@ -1568,7 +1592,7 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
                                         required
                                         value={ex.sets}
                                         onChange={(e) => handleUpdateExerciseInSession(sIdx, eIdx, 'sets', Number(e.target.value))}
-                                        className="w-full bg-slate-900 border border-slate-800 rounded px-1.5 py-1 text-center text-xs text-slate-200 focus:outline-none"
+                                        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-1.5 py-1 text-center text-xs text-slate-100 focus:outline-none focus:border-emerald-500 font-bold"
                                         placeholder="Set"
                                       />
                                     </div>
@@ -1578,7 +1602,7 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
                                         required
                                         value={ex.reps}
                                         onChange={(e) => handleUpdateExerciseInSession(sIdx, eIdx, 'reps', e.target.value)}
-                                        className="w-full bg-slate-900 border border-slate-800 rounded px-1.5 py-1 text-center text-xs text-slate-200 focus:outline-none"
+                                        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-1.5 py-1 text-center text-xs text-slate-100 focus:outline-none focus:border-emerald-500 font-bold"
                                         placeholder="Tekrar"
                                       />
                                     </div>
@@ -1589,7 +1613,7 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
                                         required
                                         value={ex.restSeconds}
                                         onChange={(e) => handleUpdateExerciseInSession(sIdx, eIdx, 'restSeconds', Number(e.target.value))}
-                                        className="w-full bg-slate-900 border border-slate-800 rounded px-1.5 py-1 text-center text-xs text-slate-200 focus:outline-none"
+                                        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-1.5 py-1 text-center text-xs text-slate-100 focus:outline-none focus:border-emerald-500 font-bold"
                                         placeholder="Dinlenme"
                                       />
                                     </div>
@@ -1598,7 +1622,7 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
                                         type="text"
                                         value={ex.rpe || ''}
                                         onChange={(e) => handleUpdateExerciseInSession(sIdx, eIdx, 'rpe', e.target.value)}
-                                        className="w-full bg-slate-900 border border-slate-800 rounded px-1.5 py-1 text-center text-xs text-slate-200 focus:outline-none"
+                                        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-1.5 py-1 text-center text-xs text-slate-100 focus:outline-none focus:border-emerald-500 font-bold"
                                         placeholder="RPE"
                                       />
                                     </div>
@@ -1607,15 +1631,15 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
                                         type="text"
                                         value={ex.notes || ''}
                                         onChange={(e) => handleUpdateExerciseInSession(sIdx, eIdx, 'notes', e.target.value)}
-                                        className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-slate-200 focus:outline-none"
-                                        placeholder="Egzersiz notu..."
+                                        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
+                                        placeholder="Not girin..."
                                       />
                                     </div>
                                     <div className="col-span-0.5 text-right">
                                       <button
                                         type="button"
                                         onClick={() => handleRemoveExerciseFromSession(sIdx, eIdx)}
-                                        className="text-slate-500 hover:text-rose-400 p-1"
+                                        className="text-slate-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-slate-900 transition"
                                       >
                                         <X className="w-3.5 h-3.5" />
                                       </button>
@@ -1626,36 +1650,41 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
                             )}
                           </div>
 
-                          {/* Exercise Selector Trigger */}
-                          <div className="pt-2 border-t border-slate-950">
+                          {/* Exercise Selector Trigger & Library Integration */}
+                          <div className="pt-2 border-t border-slate-900/60">
                             {activeSessionIndexForAdding === sIdx ? (
-                              <div className="p-3 bg-slate-950 rounded-xl border border-slate-850 space-y-3">
-                                <div className="flex items-center justify-between border-b border-slate-900 pb-2">
-                                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                                    <Search className="w-3.5 h-3.5" /> EGZERSİZ KÜTÜPHANESİNDE ARA
+                              <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800/80 space-y-4 shadow-inner">
+                                <div className="flex items-center justify-between border-b border-slate-900 pb-2.5">
+                                  <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
+                                    <Search className="w-4 h-4 text-emerald-400" /> EGZERSİZ KÜTÜPHANESİNDE ARA ({filteredExercises.length} sonuç)
                                   </span>
                                   <button
                                     type="button"
                                     onClick={() => setActiveSessionIndexForAdding(null)}
-                                    className="text-xs text-slate-400 hover:text-white font-semibold"
+                                    className="text-[10.5px] text-slate-400 hover:text-white font-extrabold hover:underline"
                                   >
                                     Aramayı Kapat
                                   </button>
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                                  <input
-                                    type="text"
-                                    placeholder="Egzersiz adı ile ara..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
-                                  />
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                  <div className="relative">
+                                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 pointer-events-none">
+                                      <Search className="w-3.5 h-3.5" />
+                                    </span>
+                                    <input
+                                      type="text"
+                                      placeholder="Egzersiz adı..."
+                                      value={searchQuery}
+                                      onChange={(e) => setSearchQuery(e.target.value)}
+                                      className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-550 focus:outline-none focus:border-emerald-500"
+                                    />
+                                  </div>
 
                                   <select
                                     value={filterMuscle}
                                     onChange={(e) => setFilterMuscle(e.target.value)}
-                                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
+                                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-250 focus:outline-none focus:border-emerald-500"
                                   >
                                     <option value="">Kas Grubu Filtresi (Tümü)</option>
                                     {allMuscles.map(m => (
@@ -1666,7 +1695,7 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
                                   <select
                                     value={filterEquipment}
                                     onChange={(e) => setFilterEquipment(e.target.value)}
-                                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
+                                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-250 focus:outline-none focus:border-emerald-500"
                                   >
                                     <option value="">Ekipman Filtresi (Tümü)</option>
                                     {allEquipments.map(e => (
@@ -1675,17 +1704,17 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
                                   </select>
                                 </div>
 
-                                {/* Results display */}
-                                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                                {/* Results list display */}
+                                <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
                                   {filteredExercises.length === 0 ? (
-                                    <p className="text-[11px] text-slate-500 italic py-2">Kriterlere uygun egzersiz bulunamadı.</p>
+                                    <p className="text-[11px] text-slate-500 italic py-3 pl-1">Kriterlere uygun egzersiz bulunamadı.</p>
                                   ) : (
                                     filteredExercises.slice(0, 8).map(ex => (
-                                      <div key={ex.id} className="p-2 bg-slate-900 border border-slate-850 rounded-lg flex items-center justify-between gap-3 hover:border-slate-700 transition">
+                                      <div key={ex.id} className="p-2.5 bg-slate-900 border border-slate-850 rounded-xl flex items-center justify-between gap-3 hover:border-slate-700 transition">
                                         <div className="min-w-0">
-                                          <span className="font-bold text-xs text-slate-200 block truncate">{ex.name}</span>
-                                          <div className="flex gap-1.5 items-center mt-0.5 text-[9px] text-slate-500">
-                                            <span>Primary: <strong className="text-slate-400">{(ex.primaryMuscles || []).join(', ')}</strong></span>
+                                          <span className="font-extrabold text-xs text-slate-200 block truncate">{ex.name}</span>
+                                          <div className="flex gap-2 items-center mt-1 text-[9.5px] text-slate-500">
+                                            <span>Kas Grubu: <strong className="text-slate-400">{(ex.primaryMuscles || []).join(', ')}</strong></span>
                                             <span>•</span>
                                             <span>Ekipman: <strong className="text-slate-400">{Array.isArray(ex.equipment) ? ex.equipment.join(', ') : ex.equipment}</strong></span>
                                           </div>
@@ -1693,7 +1722,7 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
                                         <button
                                           type="button"
                                           onClick={() => handleAddExerciseToSession(sIdx, ex)}
-                                          className="px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-extrabold text-[10px] rounded"
+                                          className="px-3 py-1 bg-emerald-500/10 hover:bg-emerald-400 hover:text-slate-950 text-emerald-400 font-extrabold text-[10px] rounded-lg transition-all"
                                         >
                                           Seç & Ekle
                                         </button>
@@ -1701,7 +1730,7 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
                                     ))
                                   )}
                                   {filteredExercises.length > 8 && (
-                                    <p className="text-[9px] text-slate-500 text-center italic mt-1">Daha spesifik arama yaparak diğer egzersizleri görebilirsiniz.</p>
+                                    <p className="text-[9px] text-slate-500 text-center italic mt-1.5">Daha spesifik arama yaparak diğer egzersizleri görebilirsiniz.</p>
                                   )}
                                 </div>
                               </div>
@@ -1714,9 +1743,9 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
                                   setFilterMuscle('');
                                   setFilterEquipment('');
                                 }}
-                                className="py-1.5 bg-slate-950 hover:bg-slate-900 text-slate-400 hover:text-white font-bold text-[10.5px] rounded-lg border border-slate-850 border-dashed w-full transition flex items-center justify-center gap-1"
+                                className="py-2 bg-slate-950 hover:bg-slate-900/60 text-slate-400 hover:text-white font-extrabold text-[10.5px] rounded-xl border border-slate-850 border-dashed w-full transition flex items-center justify-center gap-1 cursor-pointer"
                               >
-                                <Plus className="w-3.5 h-3.5" /> Bu Güne Egzersiz Ekle
+                                <Plus className="w-3.5 h-3.5 text-emerald-400" /> Bu Güne Egzersiz Ekle
                               </button>
                             )}
                           </div>
@@ -1726,18 +1755,19 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
                   )}
                 </div>
 
+                {/* Lower Action bar */}
                 <div className="flex gap-3 pt-4 border-t border-slate-900 justify-end">
                   <button
                     type="button"
                     onClick={() => setIsWritingProgram(false)}
-                    className="px-4 py-2 bg-slate-900 hover:bg-slate-850 text-slate-400 hover:text-white text-xs font-bold rounded-xl transition cursor-pointer"
+                    className="px-4 py-2.5 bg-slate-900 hover:bg-slate-850 border border-slate-800 text-slate-300 hover:text-white text-xs font-bold rounded-xl transition cursor-pointer"
                   >
                     Vazgeç
                   </button>
                   <button
                     type="submit"
                     disabled={programSubmitting}
-                    className="px-5 py-2 bg-emerald-400 hover:bg-emerald-300 disabled:opacity-50 text-slate-950 font-black text-xs rounded-xl transition cursor-pointer inline-flex items-center gap-1.5"
+                    className="px-6 py-2.5 bg-gradient-to-r from-emerald-400 to-teal-400 hover:from-emerald-350 hover:to-teal-350 disabled:opacity-50 text-slate-950 font-black text-xs rounded-xl transition cursor-pointer inline-flex items-center gap-1.5 shadow-lg shadow-emerald-500/10"
                   >
                     {programSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
                     {programSubmitting ? "Program Kaydediliyor..." : "Antrenman Programını Sporcuya Ata"}
