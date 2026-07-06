@@ -1539,6 +1539,85 @@ export const databaseService = {
     return this.listenGeneratedTrainingPrograms(userId, callback);
   },
 
+  async createCoachAssignedTrainingProgram(coachId: string, athleteId: string, programData: any): Promise<void> {
+    if (!coachId || coachId.trim() === '' || !athleteId || athleteId.trim() === '') {
+      throw new Error('Koç kimliği ve Sporcu kimliği gereklidir.');
+    }
+    // Check relation
+    const userSnap = await getDoc(doc(db, 'users', athleteId));
+    const relationSnap = await getDoc(doc(db, 'coachAthleteRelations', `${coachId}_${athleteId}`));
+    const isLinked = (userSnap.exists() && userSnap.data().coachId === coachId) || relationSnap.exists();
+    if (!isLinked) {
+      throw new Error('Bu sporcuya program atama yetkiniz yok.');
+    }
+
+    const id = programData.id || Math.random().toString(36).substring(2, 9);
+    const path = `generatedTrainingPrograms/${id}`;
+    
+    const sessions = programData.sessions || [];
+    const days = programData.days || [];
+
+    const clean = {
+      ...programData,
+      id,
+      userId: athleteId,
+      athleteId: athleteId,
+      assignedToUserId: athleteId,
+      createdBy: 'coach',
+      coachId,
+      isActive: false,
+      status: 'assigned',
+      sessions,
+      days,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    try {
+      await setDoc(doc(db, 'generatedTrainingPrograms', id), sanitizeForFirestore(clean));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+    }
+  },
+
+  listenCoachAssignedProgramsForAthlete(athleteId: string, callback: (programs: GeneratedTrainingProgram[]) => void) {
+    const q = query(
+      collection(db, 'generatedTrainingPrograms'),
+      where('athleteId', '==', athleteId),
+      where('createdBy', '==', 'coach')
+    );
+    return onSnapshot(q, (snap) => {
+      const list: GeneratedTrainingProgram[] = [];
+      snap.forEach((d) => {
+        list.push({ id: d.id, ...d.data() } as GeneratedTrainingProgram);
+      });
+      list.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+      callback(list);
+    }, (err) => {
+      console.error("listenCoachAssignedProgramsForAthlete error", err);
+      callback([]);
+    });
+  },
+
+  listenProgramsCreatedByCoach(coachId: string, callback: (programs: GeneratedTrainingProgram[]) => void) {
+    const q = query(
+      collection(db, 'generatedTrainingPrograms'),
+      where('coachId', '==', coachId),
+      where('createdBy', '==', 'coach')
+    );
+    return onSnapshot(q, (snap) => {
+      const list: GeneratedTrainingProgram[] = [];
+      snap.forEach((d) => {
+        list.push({ id: d.id, ...d.data() } as GeneratedTrainingProgram);
+      });
+      list.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+      callback(list);
+    }, (err) => {
+      console.error("listenProgramsCreatedByCoach error", err);
+      callback([]);
+    });
+  },
+
   async getTrainingProgram(programId: string): Promise<GeneratedTrainingProgram | null> {
     try {
       const snap = await getDoc(doc(db, 'generatedTrainingPrograms', programId));
@@ -1549,9 +1628,10 @@ export const databaseService = {
     }
   },
 
-  async archiveTrainingProgram(programId: string): Promise<void> {
+  async archiveTrainingProgram(userIdOrProgramId: string, maybeProgramId?: string): Promise<void> {
+    const programId = maybeProgramId || userIdOrProgramId;
     try {
-      await updateDoc(doc(db, 'generatedTrainingPrograms', programId), { isActive: false, updatedAt: new Date().toISOString() });
+      await updateDoc(doc(db, 'generatedTrainingPrograms', programId), { isActive: false, status: 'archived', updatedAt: new Date().toISOString() });
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `generatedTrainingPrograms/${programId}`);
     }

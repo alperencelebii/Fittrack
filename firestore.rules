@@ -114,9 +114,19 @@ service cloud.firestore {
 
     // 13. GeneratedTrainingPrograms Collection
     match /generatedTrainingPrograms/{programId} {
-      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isMyCoach(resource.data.userId));
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow read: if isSignedIn() && (
+        resource.data.userId == request.auth.uid || 
+        isMyCoach(resource.data.userId) || 
+        (resource != null && 'coachId' in resource.data && resource.data.coachId == request.auth.uid)
+      );
+      allow create: if isSignedIn() && (
+        request.resource.data.userId == request.auth.uid ||
+        (request.resource != null && 'coachId' in request.resource.data && request.resource.data.coachId == request.auth.uid && isMyCoach(request.resource.data.userId))
+      );
+      allow update, delete: if isSignedIn() && (
+        resource.data.userId == request.auth.uid ||
+        (resource != null && 'coachId' in resource.data && resource.data.coachId == request.auth.uid)
+      );
     }
 
     // 14. TrainingCalendarEntries Collection

@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { databaseService, normalizeExerciseSets } from '../../services/databaseService';
+import { EXERCISE_LIBRARY } from '../../data/exerciseLibrary';
 import { 
   Workout, 
   WeightEntry, 
@@ -109,6 +110,22 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
   const [newGoalDesc, setNewGoalDesc] = useState('');
   const [newGoalDeadline, setNewGoalDeadline] = useState('');
   const [goalSubmitting, setGoalSubmitting] = useState(false);
+
+  // Coach Program Writer States
+  const [isWritingProgram, setIsWritingProgram] = useState(false);
+  const [progName, setProgName] = useState('Haftalık Güç ve Hipertrofi Programı');
+  const [progGoal, setProgGoal] = useState('Kas kazanımı');
+  const [progLevel, setProgLevel] = useState('Intermediate');
+  const [progDurationWeeks, setProgDurationWeeks] = useState(8);
+  const [progCoachNote, setProgCoachNote] = useState('');
+  const [progSessions, setProgSessions] = useState<any[]>([]);
+  const [programSubmitting, setProgramSubmitting] = useState(false);
+
+  // Exercise Search / Selector States
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterMuscle, setFilterMuscle] = useState('');
+  const [filterEquipment, setFilterEquipment] = useState('');
+  const [activeSessionIndexForAdding, setActiveSessionIndexForAdding] = useState<number | null>(null);
 
   // Synchronize all items on Snapshot listeners
   useEffect(() => {
@@ -251,6 +268,48 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
     if (workouts.length === 0) return 0;
     return Math.round(workouts.reduce((sum, w) => sum + w.duration, 0) / workouts.length);
   }, [workouts]);
+
+  const allMuscles = useMemo(() => {
+    const muscles = new Set<string>();
+    EXERCISE_LIBRARY.forEach(ex => {
+      if (ex.primaryMuscles) {
+        ex.primaryMuscles.forEach(m => {
+          if (m) muscles.add(m);
+        });
+      }
+    });
+    return Array.from(muscles).sort();
+  }, []);
+
+  const allEquipments = useMemo(() => {
+    const equipments = new Set<string>();
+    EXERCISE_LIBRARY.forEach(ex => {
+      if (Array.isArray(ex.equipment)) {
+        ex.equipment.forEach(e => {
+          if (e) equipments.add(e);
+        });
+      } else if (typeof ex.equipment === 'string' && ex.equipment) {
+        equipments.add(ex.equipment);
+      }
+    });
+    return Array.from(equipments).sort();
+  }, []);
+
+  const filteredExercises = useMemo(() => {
+    return EXERCISE_LIBRARY.filter(ex => {
+      const matchesSearch = searchQuery.trim() === '' || 
+        ex.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (ex.alternativeNames && ex.alternativeNames.some(n => n.toLowerCase().includes(searchQuery.toLowerCase())));
+      
+      const matchesMuscle = !filterMuscle || 
+        (ex.primaryMuscles && ex.primaryMuscles.includes(filterMuscle));
+
+      const matchesEquipment = !filterEquipment || 
+        (Array.isArray(ex.equipment) ? ex.equipment.includes(filterEquipment) : ex.equipment === filterEquipment);
+
+      return matchesSearch && matchesMuscle && matchesEquipment;
+    });
+  }, [searchQuery, filterMuscle, filterEquipment]);
 
   // Chart parsers
   const weightChartData = useMemo(() => {
@@ -441,6 +500,161 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
         console.error(err);
         onShowToast("Not silinirken hata oluştu.");
       }
+    }
+  };
+
+  // Program Management Handlers for Coach
+  const handleAssignProgram = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!coachProfile?.id) return;
+    if (!progName.trim()) {
+      onShowToast("Lütfen geçerli bir program adı girin.");
+      return;
+    }
+    if (progSessions.length === 0) {
+      onShowToast("Program oluşturmak için en az 1 gün eklemelisiniz.");
+      return;
+    }
+
+    setProgramSubmitting(true);
+
+    const programData = {
+      id: `cp_${Math.random().toString(36).substring(2, 9)}`,
+      name: progName.trim(),
+      goal: progGoal,
+      level: progLevel,
+      weeklyDays: progSessions.length,
+      durationWeeks: Number(progDurationWeeks) || 8,
+      sessions: progSessions.map((session, sIdx) => ({
+        dayNumber: sIdx + 1,
+        name: session.name,
+        exercises: session.exercises.map((ex: any) => ({
+          id: ex.id,
+          name: ex.name,
+          sets: Number(ex.sets) || 3,
+          reps: Number(ex.reps) || 10,
+          restSeconds: Number(ex.restSeconds) || 60,
+          rpe: ex.rpe ? Number(ex.rpe) : undefined,
+          notes: ex.notes || ''
+        }))
+      })),
+      days: progSessions.map((session, sIdx) => ({
+        dayNumber: sIdx + 1,
+        name: session.name,
+        exercises: session.exercises.map((ex: any) => ({
+          id: ex.id,
+          name: ex.name,
+          sets: Number(ex.sets) || 3,
+          reps: Number(ex.reps) || 10,
+          restSeconds: Number(ex.restSeconds) || 60,
+          rpe: ex.rpe ? Number(ex.rpe) : undefined,
+          notes: ex.notes || ''
+        }))
+      })),
+      coachNote: progCoachNote.trim() || undefined,
+      equipment: [],
+      priorityMuscles: [],
+      restrictions: [],
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000 * (Number(progDurationWeeks) || 8)).toISOString().split('T')[0],
+    };
+
+    try {
+      await databaseService.createCoachAssignedTrainingProgram(coachProfile.id, athleteId, programData);
+      onShowToast("Program sporcuya başarıyla atandı.");
+      // Reset form
+      setProgName('Haftalık Güç ve Hipertrofi Programı');
+      setProgGoal('Kas kazanımı');
+      setProgLevel('Intermediate');
+      setProgDurationWeeks(8);
+      setProgCoachNote('');
+      setProgSessions([]);
+      setIsWritingProgram(false);
+    } catch (error) {
+      console.error('Koç program atama hatası:', error);
+      onShowToast("Program atanırken bir sorun oluştu.");
+    } finally {
+      setProgramSubmitting(false);
+    }
+  };
+
+  const handleAddSession = () => {
+    setProgSessions(prev => [
+      ...prev,
+      {
+        dayNumber: prev.length + 1,
+        name: `${prev.length + 1}. Gün Antrenmanı`,
+        exercises: []
+      }
+    ]);
+  };
+
+  const handleRemoveSession = (index: number) => {
+    setProgSessions(prev => prev.filter((_, i) => i !== index).map((s, idx) => ({ ...s, dayNumber: idx + 1 })));
+  };
+
+  const handleUpdateSessionName = (index: number, name: string) => {
+    setProgSessions(prev => prev.map((s, i) => i === index ? { ...s, name } : s));
+  };
+
+  const handleAddExerciseToSession = (sessionIndex: number, exercise: any) => {
+    setProgSessions(prev => prev.map((s, i) => {
+      if (i === sessionIndex) {
+        return {
+          ...s,
+          exercises: [
+            ...s.exercises,
+            {
+              id: exercise.id,
+              name: exercise.name,
+              sets: 3,
+              reps: 10,
+              restSeconds: 60,
+              rpe: '',
+              notes: ''
+            }
+          ]
+        };
+      }
+      return s;
+    }));
+    // Clear search and index selection
+    setSearchQuery('');
+    setActiveSessionIndexForAdding(null);
+  };
+
+  const handleRemoveExerciseFromSession = (sessionIndex: number, exerciseIndex: number) => {
+    setProgSessions(prev => prev.map((s, i) => {
+      if (i === sessionIndex) {
+        return {
+          ...s,
+          exercises: s.exercises.filter((_: any, idx: number) => idx !== exerciseIndex)
+        };
+      }
+      return s;
+    }));
+  };
+
+  const handleUpdateExerciseInSession = (sessionIndex: number, exerciseIndex: number, field: string, value: any) => {
+    setProgSessions(prev => prev.map((s, i) => {
+      if (i === sessionIndex) {
+        return {
+          ...s,
+          exercises: s.exercises.map((ex: any, idx: number) => idx === exerciseIndex ? { ...ex, [field]: value } : ex)
+        };
+      }
+      return s;
+    }));
+  };
+
+  const handleArchiveProgram = async (programId: string) => {
+    if (!confirm("Bu antrenman programını arşivlemek istediğinize emin misiniz?")) return;
+    try {
+      await databaseService.archiveTrainingProgram(programId);
+      onShowToast("Program başarıyla arşivlendi.");
+    } catch (error) {
+      console.error("Program arşivleme hatası:", error);
+      onShowToast("Program arşivlenirken hata oluştu.");
     }
   };
 

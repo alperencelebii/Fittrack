@@ -257,6 +257,14 @@ export type GeneratedTrainingProgram = {
   difficulty?: string;
   daysPerWeek?: number;
   sessions?: ProgramWorkoutSession[];
+
+  // Coach-assigned training program fields
+  athleteId?: string;
+  assignedToUserId?: string;
+  createdBy?: 'coach' | 'athlete' | 'ai' | 'local_fallback';
+  coachId?: string;
+  status?: 'draft' | 'assigned' | 'active' | 'archived';
+  coachNote?: string;
 };
 
 export type PersonalRecord = {
