@@ -118,19 +118,20 @@ export default function TrainingCenterView({ onShowToast, workouts }: TrainingCe
   return (
     <div id="training-center-view" className="space-y-6">
       {/* Title Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-slate-900/40 p-6 rounded-2xl border border-slate-800/60">
-        <div>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 p-6 rounded-2xl border border-slate-800/80 shadow-lg relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 to-transparent pointer-events-none" />
+        <div className="relative z-10">
           <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
-            AI Antrenman & Gelişim Merkezi <span className="text-[10px] bg-emerald-400/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded font-black uppercase tracking-wider">Premium</span>
+            AI Antrenman & Gelişim Merkezi <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-lg font-black uppercase tracking-wider">Premium</span>
           </h1>
-          <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+          <p className="text-xs text-slate-400 mt-1.5 leading-relaxed max-w-2xl">
             Yapay zekâ program oluşturucu, antrenman takvimi, PR takibi, toparlanma analizleri ve kas grubu hacim verilerinizin tamamı tek bir yerde.
           </p>
         </div>
       </div>
 
       {/* SUB TAB SELECTOR */}
-      <div className="flex flex-wrap gap-2 border-b border-slate-800 pb-3">
+      <div className="flex overflow-x-auto pb-3 scrollbar-none gap-2 border-b border-slate-850 -mx-4 px-4 md:mx-0 md:px-0">
         {subTabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeSubTab === tab.id;
@@ -138,10 +139,10 @@ export default function TrainingCenterView({ onShowToast, workouts }: TrainingCe
             <button
               key={tab.id}
               onClick={() => setActiveSubTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition cursor-pointer select-none border ${
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition cursor-pointer select-none border shrink-0 ${
                 isActive 
                   ? 'bg-emerald-400 text-slate-950 border-emerald-500 shadow-md shadow-emerald-400/10' 
-                  : 'bg-slate-900/50 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+                  : 'bg-slate-900/40 border-slate-850 text-slate-400 hover:text-white hover:border-slate-750'
               }`}
             >
               <Icon className="w-4 h-4 shrink-0" />

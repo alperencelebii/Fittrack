@@ -66,25 +66,25 @@ export default function CoachDashboard({ onSelectAthlete, onNavigateToAthletes, 
     <div className="space-y-6 animate-fade-in">
       
       {/* Top Banner Greetings */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 bg-slate-900 border border-slate-800 rounded-2xl relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 to-teal-500/5 pointer-events-none" />
-        <div className="relative z-10 space-y-1">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 border border-slate-800/80 rounded-2xl relative overflow-hidden shadow-xl">
+        <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 to-transparent pointer-events-none" />
+        <div className="relative z-10 space-y-1.5">
           <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-full text-[10px] font-bold uppercase tracking-wider">
             <Sparkles className="w-3 h-3" /> Koç Yönetim Paneli
           </div>
-          <h1 className="text-2xl font-black text-white tracking-tight">Kaptan {userProfile?.name}!</h1>
-          <p className="text-slate-400 text-xs">Bağlı sporcularınızın gelişimlerini, hedeflerini ve günlük veri kayıtlarını tek noktadan takip edin.</p>
+          <h1 className="text-2xl font-black text-white tracking-tight">Merhaba, {userProfile?.name}!</h1>
+          <p className="text-slate-400 text-xs max-w-xl">Bağlı sporcularınızın gelişimlerini, hedeflerini ve günlük veri kayıtlarını tek noktadan takip edin.</p>
         </div>
 
         {/* Copy Invite Code Card inside Header */}
-        <div className="relative z-10 bg-slate-950/70 border border-slate-800/80 rounded-xl p-4 flex items-center justify-between gap-6 shrink-0 md:max-w-xs w-full">
+        <div className="relative z-10 bg-slate-950/80 border border-slate-850 rounded-xl p-4 flex items-center justify-between gap-6 shrink-0 md:max-w-xs w-full shadow-inner">
           <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Davet Kodunuz</span>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block font-mono">Davet Kodunuz</span>
             <span className="text-xl font-mono font-black text-emerald-400 tracking-widest">{userProfile?.inviteCode || 'N/A'}</span>
           </div>
           <button
             onClick={copyInviteCode}
-            className="p-2.5 bg-slate-850 hover:bg-slate-800 rounded-lg text-slate-300 hover:text-emerald-400 transition cursor-pointer active:scale-95"
+            className="p-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg text-slate-300 hover:text-emerald-400 transition cursor-pointer active:scale-95"
             title="Kodu Kopyala"
           >
             {copied ? <CheckCircle className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
@@ -93,34 +93,34 @@ export default function CoachDashboard({ onSelectAthlete, onNavigateToAthletes, 
       </div>
 
       {/* Bento Grid Analytics Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="p-4 bg-slate-900 border border-slate-850 rounded-xl flex items-center gap-4">
-          <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-lg">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="p-4 bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-850 rounded-xl flex items-center gap-4 shadow-md">
+          <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/10">
             <Users className="w-5 h-5" />
           </div>
           <div>
-            <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Toplam Sporcu</span>
-            <span className="text-2xl font-black text-white">{totalAthletes}</span>
+            <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Toplam Sporcu</span>
+            <span className="text-2xl font-black text-white leading-none">{totalAthletes}</span>
           </div>
         </div>
 
-        <div className="p-4 bg-slate-900 border border-slate-850 rounded-xl flex items-center gap-4">
-          <div className="p-3 bg-teal-500/10 text-teal-400 rounded-lg">
+        <div className="p-4 bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-850 rounded-xl flex items-center gap-4 shadow-md">
+          <div className="p-3 bg-teal-500/10 text-teal-400 rounded-xl border border-teal-500/10">
             <UserCheck2 className="w-5 h-5" />
           </div>
           <div>
-            <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Aktif Üyeler</span>
-            <span className="text-2xl font-black text-white">{activeThisWeek}</span>
+            <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Aktif Üyeler</span>
+            <span className="text-2xl font-black text-white leading-none">{activeThisWeek}</span>
           </div>
         </div>
 
-        <div className="p-4 bg-slate-900 border border-slate-850 rounded-xl flex items-center gap-4 col-span-2">
-          <div className="p-3 bg-blue-500/10 text-blue-400 rounded-lg">
+        <div className="p-4 bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-850 rounded-xl flex items-center gap-4 col-span-1 sm:col-span-2 shadow-md">
+          <div className="p-3 bg-blue-500/10 text-blue-400 rounded-xl border border-blue-500/10">
             <TrendingUp className="w-5 h-5" />
           </div>
           <div className="flex-1">
-            <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Durum Özeti</span>
-            <span className="text-xs text-slate-300 font-semibold block mt-0.5">Tüm öğrencileriniz kararlı bir tempoda kilolarını güncelliyor.</span>
+            <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Gelişim Özeti</span>
+            <span className="text-xs text-slate-300 font-bold block mt-1 leading-normal">Sporcularınız antrenman ve beslenme verilerini kararlılıkla takip ediyor.</span>
           </div>
         </div>
       </div>

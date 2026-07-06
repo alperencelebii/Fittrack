@@ -137,31 +137,36 @@ export default function ExerciseLibraryView({
   }, [selectedEx]);
 
   return (
-    <div id="exercise-library-view" className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5 mb-6">
+    <div id="exercise-library-view" className="bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-800/80 rounded-2xl p-6 shadow-xl relative overflow-hidden">
+      <div className="absolute top-0 right-0 -translate-y-12 translate-x-12 w-48 h-48 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/60 pb-5 mb-6 relative z-10">
         <div>
-          <div className="flex items-center gap-2">
-            <BookOpen className="w-6 h-6 text-emerald-400" />
-            <h2 className="text-xl font-bold text-white tracking-tight">Kapsamlı Egzersiz Kütüphanesi</h2>
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+              <BookOpen className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-black text-white tracking-tight">Egzersiz Kütüphanesi</h2>
+              <p className="text-slate-400 text-xs mt-0.5">Nizami form rehberi, birincil kas grupları ve doğru hareket teknikleri.</p>
+            </div>
           </div>
-          <p className="text-slate-400 text-sm mt-1">Nizami form videoları, birincil kas grupları ve doğru form talimatlarını inceleyin.</p>
         </div>
 
         <button
           onClick={() => setShowOnlyFavorites(!showOnlyFavorites)}
-          className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 border ${
+          className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 border cursor-pointer ${
             showOnlyFavorites 
               ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' 
-              : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+              : 'bg-slate-950 border-slate-850 text-slate-450 hover:text-white hover:border-slate-750'
           }`}
         >
-          <Star className={`w-4 h-4 ${showOnlyFavorites ? 'fill-amber-400 text-amber-400' : ''}`} />
+          <Star className={`w-3.5 h-3.5 ${showOnlyFavorites ? 'fill-amber-400 text-amber-400' : ''}`} />
           Sadece Favoriler ({favorites.length})
         </button>
       </div>
 
       {/* FILTER PANEL */}
-      <div className="bg-slate-950 p-4 rounded-xl border border-slate-800/80 mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="bg-slate-950/40 p-5 rounded-2xl border border-slate-850 mb-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 relative z-10">
         {/* Search Input */}
         <div>
           <label className="text-xs text-slate-400 block mb-1 font-medium">Arama (Türkçe)</label>

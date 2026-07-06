@@ -51,23 +51,30 @@ export default function CoachProgramsView({ userId, programs, onShowToast }: Coa
   };
 
   return (
-    <div id="coach-programs-view" className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+    <div id="coach-programs-view" className="bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-800/80 rounded-2xl p-6 space-y-6 shadow-xl relative overflow-hidden">
+      <div className="absolute top-0 right-0 -translate-y-12 translate-x-12 w-48 h-48 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/60 pb-5 relative z-10">
         <div>
-          <div className="flex items-center gap-2">
-            <User className="w-6 h-6 text-emerald-400" />
-            <h2 className="text-xl font-bold text-white tracking-tight">Koçumun Programları</h2>
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+              <User className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-black text-white tracking-tight">Koçumun Programları</h2>
+              <p className="text-slate-400 text-xs mt-0.5">Koçunuz tarafından sizin için özel hazırlanmış antrenman programları.</p>
+            </div>
           </div>
-          <p className="text-slate-400 text-sm mt-1">Koçunuz tarafından sizin için özel hazırlanmış antrenman programları.</p>
         </div>
       </div>
 
       {coachPrograms.length === 0 ? (
-        <div className="p-12 text-center bg-slate-950/30 border border-dashed border-slate-800 rounded-xl space-y-3">
-          <Dumbbell className="w-10 h-10 text-slate-600 mx-auto animate-pulse" />
-          <div className="space-y-1">
-            <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Atanmış Program Yok</h4>
-            <p className="text-xs text-slate-500">Koçunuz tarafından atanmış program bulunmuyor.</p>
+        <div className="p-16 text-center bg-slate-950/20 border border-dashed border-slate-850 rounded-2xl space-y-4 shadow-inner">
+          <div className="w-12 h-12 rounded-full bg-slate-900 flex items-center justify-center mx-auto text-slate-500">
+            <Dumbbell className="w-6 h-6 animate-pulse" />
+          </div>
+          <div className="space-y-1.5 max-w-xs mx-auto">
+            <h4 className="text-sm font-extrabold text-slate-200">Atanmış Program Bulunmuyor</h4>
+            <p className="text-xs text-slate-500 leading-relaxed">Koçunuz henüz sizin için yeni bir antrenman programı atamadı. İstediğinizde koçunuzla iletişime geçebilirsiniz.</p>
           </div>
         </div>
       ) : (

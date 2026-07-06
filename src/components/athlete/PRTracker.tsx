@@ -143,21 +143,26 @@ export default function PRTracker({
   };
 
   return (
-    <div id="pr-tracker" className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
+    <div id="pr-tracker" className="bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-800/80 rounded-2xl p-6 space-y-6 shadow-xl relative overflow-hidden">
+      <div className="absolute top-0 right-0 -translate-y-12 translate-x-12 w-48 h-48 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
       
       {/* HEADER SECTION */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/60 pb-5 relative z-10">
         <div>
-          <div className="flex items-center gap-2">
-            <Award className="w-6 h-6 text-amber-400" />
-            <h2 className="text-xl font-bold text-white tracking-tight">Kişisel Rekorlar (PR) ve Güç Takibi</h2>
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-400">
+              <Award className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-black text-white tracking-tight">Kişisel Rekorlar (PR) & Güç Takibi</h2>
+              <p className="text-slate-400 text-xs mt-0.5">Egzersizlerdeki maksimum ağırlık ve tahmini tek tekrar (1RM) gücünüzü takip edin.</p>
+            </div>
           </div>
-          <p className="text-slate-400 text-sm mt-1">Egzersizlerdeki maksimum ağırlık ve tahmini tek tekrar (1RM) gücünüzü takip edin.</p>
         </div>
 
         <button
           onClick={() => setIsAddOpen(!isAddOpen)}
-          className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-lg shadow-amber-500/15"
+          className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 shadow-lg shadow-amber-500/15 cursor-pointer"
         >
           <Plus className="w-4 h-4" /> Manuel PR Güncelle
         </button>

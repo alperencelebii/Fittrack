@@ -143,29 +143,34 @@ export default function TrainingProgramGenerator({
   };
 
   return (
-    <div id="training-program-generator" className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5 mb-6">
+    <div id="training-program-generator" className="bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-800/80 rounded-2xl p-6 shadow-xl relative overflow-hidden">
+      <div className="absolute top-0 right-0 -translate-y-12 translate-x-12 w-48 h-48 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/60 pb-5 mb-6 relative z-10">
         <div>
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-6 h-6 text-emerald-400" />
-            <h2 className="text-xl font-bold text-white tracking-tight">AI Akıllı Antrenman Programı</h2>
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-black text-white tracking-tight">AI Akıllı Antrenman Programı</h2>
+              <p className="text-slate-400 text-xs mt-0.5">Hedeflerinize ve spor geçmişinize göre kişiselleştirilmiş akıllı rutinler oluşturun.</p>
+            </div>
           </div>
-          <p className="text-slate-400 text-sm mt-1">Hedeflerinize ve spor geçmişinize göre kişiselleştirilmiş rutinler oluşturun.</p>
         </div>
 
-        <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 self-start">
+        <div className="flex bg-slate-950 p-1.5 rounded-xl border border-slate-850 self-start">
           <button
             onClick={() => { setActiveTab('my-program'); setSelectedProgramId(null); }}
-            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              activeTab === 'my-program' ? 'bg-emerald-400 text-slate-950 shadow-lg' : 'text-slate-400 hover:text-white'
+            className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
+              activeTab === 'my-program' ? 'bg-emerald-400 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white'
             }`}
           >
             Aktif Programım
           </button>
           <button
             onClick={() => setActiveTab('history')}
-            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              activeTab === 'history' ? 'bg-emerald-400 text-slate-950 shadow-lg' : 'text-slate-400 hover:text-white'
+            className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
+              activeTab === 'history' ? 'bg-emerald-400 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white'
             }`}
           >
             Tüm Programlarım ({programs.length})
