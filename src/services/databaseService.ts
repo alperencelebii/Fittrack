@@ -2018,4 +2018,121 @@ export const databaseService = {
       return [];
     }
   },
+
+  // --- WEEKLY CHECK-INS ---
+  async submitWeeklyCheckIn(userId: string, data: any): Promise<void> {
+    if (!userId || userId.trim() === '') {
+      throw new Error('Kullanıcı kimliği bulunamadı.');
+    }
+    const weekStartDate = data.weekStartDate;
+    if (!weekStartDate) {
+      throw new Error('Hafta başlangıç tarihi (weekStartDate) bulunamadı.');
+    }
+    const docId = `${userId}_${weekStartDate}`;
+    const path = `weeklyCheckIns/${docId}`;
+    
+    const cleanData = {
+      id: docId,
+      userId,
+      athleteId: userId,
+      coachId: data.coachId || null,
+      weekStartDate: data.weekStartDate,
+      weekEndDate: data.weekEndDate || '',
+      weightKg: Number(data.weightKg) || 0,
+      sleepHours: Number(data.sleepHours) || 0,
+      energyLevel: Number(data.energyLevel) || 5,
+      stressLevel: Number(data.stressLevel) || 5,
+      hungerLevel: Number(data.hungerLevel) || 5,
+      workoutCompliance: Number(data.workoutCompliance) || 0,
+      nutritionCompliance: Number(data.nutritionCompliance) || 0,
+      waterIntakeLiters: Number(data.waterIntakeLiters) || 0,
+      sorenessLevel: Number(data.sorenessLevel) || 5,
+      painOrInjury: data.painOrInjury || '',
+      mood: data.mood || '',
+      note: data.note || '',
+      status: 'submitted',
+      createdAt: data.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      coachReply: data.coachReply || '',
+      coachReplyAt: data.coachReplyAt || ''
+    };
+    
+    try {
+      await setDoc(doc(db, 'weeklyCheckIns', docId), sanitizeForFirestore(cleanData), { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+    }
+  },
+
+  listenWeeklyCheckInsForAthlete(athleteId: string, callback: (checkIns: any[]) => void) {
+    const q = query(
+      collection(db, 'weeklyCheckIns'),
+      where('athleteId', '==', athleteId)
+    );
+    return onSnapshot(q, (snap) => {
+      const list: any[] = [];
+      snap.forEach((d) => {
+        list.push({ id: d.id, ...d.data() });
+      });
+      list.sort((a, b) => b.weekStartDate.localeCompare(a.weekStartDate));
+      callback(list);
+    }, (err) => {
+      console.error("listenWeeklyCheckInsForAthlete error", err);
+      callback([]);
+    });
+  },
+
+  listenLatestWeeklyCheckInForAthlete(athleteId: string, callback: (checkIn: any | null) => void) {
+    const q = query(
+      collection(db, 'weeklyCheckIns'),
+      where('athleteId', '==', athleteId)
+    );
+    return onSnapshot(q, (snap) => {
+      if (snap.empty) {
+        callback(null);
+        return;
+      }
+      const list: any[] = [];
+      snap.forEach((d) => {
+        list.push({ id: d.id, ...d.data() });
+      });
+      list.sort((a, b) => b.weekStartDate.localeCompare(a.weekStartDate));
+      callback(list[0]);
+    }, (err) => {
+      console.error("listenLatestWeeklyCheckInForAthlete error", err);
+      callback(null);
+    });
+  },
+
+  listenCoachAthleteCheckIns(coachId: string, athleteId: string, callback: (checkIns: any[]) => void) {
+    const q = query(
+      collection(db, 'weeklyCheckIns'),
+      where('athleteId', '==', athleteId),
+      where('coachId', '==', coachId)
+    );
+    return onSnapshot(q, (snap) => {
+      const list: any[] = [];
+      snap.forEach((d) => {
+        list.push({ id: d.id, ...d.data() });
+      });
+      list.sort((a, b) => b.weekStartDate.localeCompare(a.weekStartDate));
+      callback(list);
+    }, (err) => {
+      console.error("listenCoachAthleteCheckIns error", err);
+      callback([]);
+    });
+  },
+
+  async addCoachReplyToCheckIn(coachId: string, checkInId: string, reply: string): Promise<void> {
+    const path = `weeklyCheckIns/${checkInId}`;
+    try {
+      await updateDoc(doc(db, 'weeklyCheckIns', checkInId), {
+        coachReply: reply,
+        coachReplyAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+    }
+  },
 };

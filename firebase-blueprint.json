@@ -149,6 +149,37 @@
         "createdAt": { "type": "string" }
       },
       "required": ["id", "coachId", "athleteId"]
+    },
+    "WeeklyCheckIn": {
+      "title": "Weekly Athlete Check-in",
+      "description": "Weekly status report from athletes to coaches tracking sleep, compliance, energy, weight, water, and notes",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "athleteId": { "type": "string" },
+        "coachId": { "type": "string" },
+        "weekStartDate": { "type": "string" },
+        "weekEndDate": { "type": "string" },
+        "weightKg": { "type": "number" },
+        "sleepHours": { "type": "number" },
+        "energyLevel": { "type": "integer" },
+        "stressLevel: ": { "type": "integer" },
+        "hungerLevel": { "type": "integer" },
+        "workoutCompliance": { "type": "integer" },
+        "nutritionCompliance": { "type": "integer" },
+        "waterIntakeLiters": { "type": "number" },
+        "sorenessLevel": { "type": "integer" },
+        "painOrInjury": { "type": "string" },
+        "mood": { "type": "string" },
+        "note": { "type": "string" },
+        "status": { "type": "string" },
+        "coachReply": { "type": "string" },
+        "coachReplyAt": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "athleteId", "weekStartDate", "status"]
     }
   },
   "firestore": {
@@ -187,6 +218,10 @@
     "/coachAthleteRelations/{relationId}": {
       "schema": "CoachAthleteRelation",
       "description": "Explicit connection document mapping coaches and athletes"
+    },
+    "/weeklyCheckIns/{checkInId}": {
+      "schema": "WeeklyCheckIn",
+      "description": "Weekly feedback report submitted by athletes to coaches"
     }
   }
 }

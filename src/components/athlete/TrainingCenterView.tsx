@@ -23,6 +23,7 @@ import ExerciseLibraryView from './ExerciseLibraryView';
 import MuscleVolumeCharts from './MuscleVolumeCharts';
 import ProgressReportGenerator from './ProgressReportGenerator';
 import CoachProgramsView from './CoachProgramsView';
+import WeeklyCheckInView from './WeeklyCheckInView';
 
 import { 
   Sparkles, 
@@ -34,7 +35,8 @@ import {
   BarChart3, 
   FileDown, 
   Loader2,
-  User
+  User,
+  ClipboardCheck
 } from 'lucide-react';
 
 interface TrainingCenterViewProps {
@@ -42,7 +44,7 @@ interface TrainingCenterViewProps {
   workouts: Workout[]; // Pass primary workouts list for report stats
 }
 
-type SubTabType = 'coach_programs' | 'generator' | 'calendar' | 'pr' | 'recovery' | 'photos' | 'library' | 'volume' | 'report';
+type SubTabType = 'coach_programs' | 'generator' | 'calendar' | 'pr' | 'recovery' | 'photos' | 'library' | 'volume' | 'report' | 'checkin';
 
 export default function TrainingCenterView({ onShowToast, workouts }: TrainingCenterViewProps) {
   const { currentUser, userProfile } = useAuth();
@@ -105,6 +107,7 @@ export default function TrainingCenterView({ onShowToast, workouts }: TrainingCe
 
   const subTabs = [
     { id: 'coach_programs', label: 'Koçumun Programları', icon: User },
+    { id: 'checkin', label: 'Haftalık Check-in', icon: ClipboardCheck },
     { id: 'generator', label: 'AI Program', icon: Sparkles },
     { id: 'calendar', label: 'Antrenman Takvimi', icon: Calendar },
     { id: 'pr', label: 'PR / Güç Takibi', icon: TrendingUp },
@@ -158,6 +161,14 @@ export default function TrainingCenterView({ onShowToast, workouts }: TrainingCe
           <CoachProgramsView 
             userId={currentUser?.uid || ''} 
             programs={programs}
+            onShowToast={onShowToast}
+          />
+        )}
+
+        {activeSubTab === 'checkin' && (
+          <WeeklyCheckInView 
+            userId={currentUser?.uid || ''} 
+            coachId={userProfile?.coachId}
             onShowToast={onShowToast}
           />
         )}

@@ -1,8 +1,311 @@
-rules_version = "2";
+rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isDocOwner(res) {
+      return isSignedIn() && request.auth.uid == res.data.userId;
+    }
+
+    function isIncomingDocOwner(reqRes) {
+      return isSignedIn() && request.auth.uid == reqRes.data.userId;
+    }
+
+    // Relation check helper
+    function isConnectedCoach(athleteId) {
+      return isSignedIn() && (
+        exists(/databases/(default)/documents/coachAthleteRelations/$(request.auth.uid)_$(athleteId))
+      );
+    }
+
+    function isConnectedAthlete(coachId) {
+      return isSignedIn() && (
+        exists(/databases/(default)/documents/coachAthleteRelations/$(coachId)_$(request.auth.uid))
+      );
+    }
+
+    // Default deny
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if false;
+    }
+
+    // 1. users
+    match /users/{userId} {
+      allow get: if isSignedIn() && (
+        request.auth.uid == userId || 
+        isConnectedCoach(userId) || 
+        resource.data.role == 'coach'
+      );
+      
+      allow list: if isSignedIn() && (
+        resource.data.role == 'coach' ||
+        resource.data.coachId == request.auth.uid ||
+        request.auth.uid == userId
+      );
+
+      allow create, update: if isSignedIn() && request.auth.uid == userId;
+      allow delete: if false;
+    }
+
+    // 2. coachAthleteRelations
+    match /coachAthleteRelations/{relationId} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.coachId || 
+        request.auth.uid == resource.data.athleteId
+      );
+      allow create: if isSignedIn() && (
+        request.auth.uid == request.resource.data.athleteId || 
+        request.auth.uid == request.resource.data.coachId
+      );
+      allow update, delete: if isSignedIn() && (
+        request.auth.uid == resource.data.athleteId || 
+        request.auth.uid == resource.data.coachId
+      );
+    }
+
+    // 3. Athlete logging collections
+    match /workouts/{id} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.userId || 
+        isConnectedCoach(resource.data.userId)
+      );
+      allow write: if isSignedIn() && (
+        request.auth.uid == request.resource.data.userId || 
+        (resource != null && request.auth.uid == resource.data.userId)
+      );
+    }
+
+    match /workoutSetEntries/{id} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.userId || 
+        isConnectedCoach(resource.data.userId)
+      );
+      allow write: if isSignedIn() && (
+        request.auth.uid == request.resource.data.userId || 
+        (resource != null && request.auth.uid == resource.data.userId)
+      );
+    }
+
+    match /weightEntries/{id} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.userId || 
+        isConnectedCoach(resource.data.userId)
+      );
+      allow write: if isSignedIn() && (
+        request.auth.uid == request.resource.data.userId || 
+        (resource != null && request.auth.uid == resource.data.userId)
+      );
+    }
+
+    match /bodyMeasurements/{id} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.userId || 
+        isConnectedCoach(resource.data.userId)
+      );
+      allow write: if isSignedIn() && (
+        request.auth.uid == request.resource.data.userId || 
+        (resource != null && request.auth.uid == resource.data.userId)
+      );
+    }
+
+    match /mealEntries/{id} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.userId || 
+        isConnectedCoach(resource.data.userId)
+      );
+      allow write: if isSignedIn() && (
+        request.auth.uid == request.resource.data.userId || 
+        (resource != null && request.auth.uid == resource.data.userId)
+      );
+    }
+
+    match /waterEntries/{id} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.userId || 
+        isConnectedCoach(resource.data.userId)
+      );
+      allow write: if isSignedIn() && (
+        request.auth.uid == request.resource.data.userId || 
+        (resource != null && request.auth.uid == resource.data.userId)
+      );
+    }
+
+    match /favoriteMeals/{id} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.userId || 
+        isConnectedCoach(resource.data.userId)
+      );
+      allow write: if isSignedIn() && (
+        request.auth.uid == request.resource.data.userId || 
+        (resource != null && request.auth.uid == resource.data.userId)
+      );
+    }
+
+    match /nutritionDayStatuses/{id} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.userId || 
+        isConnectedCoach(resource.data.userId)
+      );
+      allow write: if isSignedIn() && (
+        request.auth.uid == request.resource.data.userId || 
+        (resource != null && request.auth.uid == resource.data.userId)
+      );
+    }
+
+    match /trainingCalendarEntries/{id} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.userId || 
+        isConnectedCoach(resource.data.userId)
+      );
+      allow write: if isSignedIn() && (
+        request.auth.uid == request.resource.data.userId || 
+        (resource != null && request.auth.uid == resource.data.userId)
+      );
+    }
+
+    match /personalRecords/{id} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.userId || 
+        isConnectedCoach(resource.data.userId)
+      );
+      allow write: if isSignedIn() && (
+        request.auth.uid == request.resource.data.userId || 
+        (resource != null && request.auth.uid == resource.data.userId)
+      );
+    }
+
+    match /progressPhotos/{id} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.userId || 
+        isConnectedCoach(resource.data.userId)
+      );
+      allow write: if isSignedIn() && (
+        request.auth.uid == request.resource.data.userId || 
+        (resource != null && request.auth.uid == resource.data.userId)
+      );
+    }
+
+    match /recoveryEntries/{id} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.userId || 
+        isConnectedCoach(resource.data.userId)
+      );
+      allow write: if isSignedIn() && (
+        request.auth.uid == request.resource.data.userId || 
+        (resource != null && request.auth.uid == resource.data.userId)
+      );
+    }
+
+    match /deloadSuggestions/{id} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.userId || 
+        isConnectedCoach(resource.data.userId)
+      );
+      allow write: if isSignedIn() && (
+        request.auth.uid == request.resource.data.userId || 
+        (resource != null && request.auth.uid == resource.data.userId)
+      );
+    }
+
+    match /favoriteExercises/{id} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.userId || 
+        isConnectedCoach(resource.data.userId)
+      );
+      allow write: if isSignedIn() && (
+        request.auth.uid == request.resource.data.userId || 
+        (resource != null && request.auth.uid == resource.data.userId)
+      );
+    }
+
+    // 4. Coach feedback and communications
+    match /coachNotes/{id} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.athleteId || 
+        request.auth.uid == resource.data.coachId
+      );
+      allow write: if isSignedIn() && (
+        request.auth.uid == request.resource.data.coachId ||
+        (resource != null && request.auth.uid == resource.data.coachId)
+      );
+    }
+
+    match /coachGoals/{id} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.athleteId || 
+        request.auth.uid == resource.data.coachId
+      );
+      allow write: if isSignedIn() && (
+        request.auth.uid == request.resource.data.coachId ||
+        request.auth.uid == request.resource.data.athleteId ||
+        (resource != null && (request.auth.uid == resource.data.coachId || request.auth.uid == resource.data.athleteId))
+      );
+    }
+
+    match /nutritionCoachNotes/{id} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.athleteId || 
+        request.auth.uid == resource.data.coachId
+      );
+      allow write: if isSignedIn() && (
+        request.auth.uid == request.resource.data.coachId ||
+        (resource != null && request.auth.uid == resource.data.coachId)
+      );
+    }
+
+    match /coachAthleteNotes/{id} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.athleteId || 
+        request.auth.uid == resource.data.coachId
+      );
+      allow write: if isSignedIn() && (
+        request.auth.uid == request.resource.data.coachId ||
+        (resource != null && request.auth.uid == resource.data.coachId)
+      );
+    }
+
+    // 5. Training programs
+    match /generatedTrainingPrograms/{id} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.userId || 
+        request.auth.uid == resource.data.coachId ||
+        isConnectedCoach(resource.data.userId)
+      );
+      allow write: if isSignedIn() && (
+        request.auth.uid == request.resource.data.userId || 
+        request.auth.uid == request.resource.data.coachId ||
+        (resource != null && (request.auth.uid == resource.data.userId || request.auth.uid == resource.data.coachId))
+      );
+    }
+
+    // 6. Weekly Athlete Check-ins
+    match /weeklyCheckIns/{id} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.athleteId || 
+        request.auth.uid == resource.data.userId ||
+        request.auth.uid == resource.data.coachId ||
+        isConnectedCoach(resource.data.athleteId)
+      );
+      allow write: if isSignedIn() && (
+        request.auth.uid == request.resource.data.athleteId ||
+        request.auth.uid == request.resource.data.userId ||
+        request.auth.uid == request.resource.data.coachId ||
+        isConnectedCoach(request.resource.data.athleteId) ||
+        (resource != null && (
+          request.auth.uid == resource.data.athleteId ||
+          request.auth.uid == resource.data.userId ||
+          request.auth.uid == resource.data.coachId ||
+          isConnectedCoach(resource.data.athleteId)
+        ))
+      );
     }
   }
 }

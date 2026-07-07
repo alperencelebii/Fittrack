@@ -56,7 +56,8 @@ import {
   Search,
   Filter,
   X,
-  Archive
+  Archive,
+  ClipboardCheck
 } from 'lucide-react';
 
 interface AthleteDetailsViewProps {
@@ -94,8 +95,14 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
   const [nutritionCoachNotes, setNutritionCoachNotes] = useState<any[]>([]);
 
   // UI Controllers
-  const [activeTab, setActiveTab] = useState<'summary' | 'workouts' | 'nutrition' | 'measurements' | 'training_status'>('summary');
+  const [activeTab, setActiveTab] = useState<'summary' | 'workouts' | 'nutrition' | 'measurements' | 'training_status' | 'checkins'>('summary');
   const [loading, setLoading] = useState(true);
+
+  // Athlete Weekly Check-ins State
+  const [weeklyCheckIns, setWeeklyCheckIns] = useState<any[]>([]);
+  const [selectedCheckInId, setSelectedCheckInId] = useState<string | null>(null);
+  const [coachReplyText, setCoachReplyText] = useState('');
+  const [replySubmitting, setReplySubmitting] = useState(false);
 
   // Training Module States
   const [trainingPrograms, setTrainingPrograms] = useState<GeneratedTrainingProgram[]>([]);
@@ -229,6 +236,11 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
       setRecoveryLogs(list);
     });
 
+    // 14. Listen Weekly Check-ins
+    const unsubCheckIns = databaseService.listenWeeklyCheckInsForAthlete(athleteId, (list) => {
+      setWeeklyCheckIns(list);
+    });
+
     return () => {
       unsubWorkouts();
       unsubWeight();
@@ -243,6 +255,7 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
       unsubPRs();
       unsubDeload();
       unsubRecovery();
+      unsubCheckIns();
     };
   }, [athleteId]);
 
@@ -264,6 +277,20 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
       setCoachTargetWeight(String(athleteDoc.targetWeight || ''));
     }
   }, [athleteDoc]);
+
+  // Selected Check-in memoization & Syncing coachReply text input
+  const selectedCheckIn = useMemo(() => {
+    if (weeklyCheckIns.length === 0) return null;
+    return weeklyCheckIns.find(c => c.id === selectedCheckInId) || weeklyCheckIns[0];
+  }, [weeklyCheckIns, selectedCheckInId]);
+
+  useEffect(() => {
+    if (selectedCheckIn) {
+      setCoachReplyText(selectedCheckIn.coachReply || '');
+    } else {
+      setCoachReplyText('');
+    }
+  }, [selectedCheckIn]);
 
   // Helper Metrics calculations
   const totalCalBurned = useMemo(() => {
@@ -472,6 +499,26 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
       } catch (err) {
         console.error(err);
       }
+    }
+  };
+
+  const handleCoachReply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCheckIn || !coachProfile?.id) return;
+    if (!coachReplyText.trim()) {
+      onShowToast("Lütfen sporcuya iletmek için bir cevap yazın.");
+      return;
+    }
+
+    setReplySubmitting(true);
+    try {
+      await databaseService.addCoachReplyToCheckIn(coachProfile.id, selectedCheckIn.id, coachReplyText.trim());
+      onShowToast("Check-in cevabınız başarıyla kaydedildi! 💬");
+    } catch (err) {
+      console.error("Coach reply error:", err);
+      onShowToast("Cevap gönderilirken bir sorun oluştu.");
+    } finally {
+      setReplySubmitting(false);
     }
   };
 
@@ -787,6 +834,7 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
       <div className="flex border-b border-slate-850 gap-2 overflow-x-auto pb-px">
         {[
           { id: 'summary', name: 'Gözlem & Öneri', icon: Sparkles },
+          { id: 'checkins', name: 'Haftalık Check-in', icon: ClipboardCheck },
           { id: 'workouts', name: 'Antrenman Günlüğü', icon: Dumbbell },
           { id: 'training_status', name: 'Antrenman & Güç Analizi', icon: Award },
           { id: 'nutrition', name: 'Beslenme & Su', icon: Apple },
@@ -1101,6 +1149,264 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
 
           </div>
 
+        </div>
+      )}
+
+      {/* TAB CONTENT: HAFTALIK CHECK-IN (COACH PANEL) */}
+      {activeTab === 'checkins' && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div>
+              <h3 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+                <ClipboardCheck className="w-5 h-5 text-emerald-400" /> Haftalık Sporcu Check-in Sistemi
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">Sporcunun haftalık durum raporlarını inceleyin ve geri bildirim sağlayın.</p>
+            </div>
+          </div>
+
+          {weeklyCheckIns.length === 0 ? (
+            <div className="p-12 text-center bg-slate-900 border border-dashed border-slate-850 rounded-2xl">
+              <ClipboardCheck className="w-12 h-12 text-slate-650 mx-auto mb-3" />
+              <p className="text-xs text-slate-400 font-bold">Henüz Check-in Kaydı Yok</p>
+              <p className="text-[11px] text-slate-500 mt-1">Sporcu henüz haftalık bir durum raporu veya check-in formu doldurmamış.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              {/* Left Column: Check-in History List */}
+              <div className="lg:col-span-4 space-y-3">
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block font-bold">Geçmiş Raporlar ({weeklyCheckIns.length})</span>
+                <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
+                  {weeklyCheckIns.map((ci) => {
+                    const isSelected = selectedCheckIn?.id === ci.id;
+                    const isReplied = !!ci.coachReply;
+                    return (
+                      <button
+                        key={ci.id}
+                        onClick={() => setSelectedCheckInId(ci.id)}
+                        className={`w-full text-left p-3.5 rounded-xl border transition flex flex-col gap-2 ${
+                          isSelected
+                            ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-200'
+                            : 'bg-slate-900 border-slate-850 hover:border-slate-800 text-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <span className="text-[11px] font-black font-mono">
+                            {ci.weekStartDate} — {ci.weekEndDate ? ci.weekEndDate.substring(5) : ''}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
+                            isReplied 
+                              ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/10' 
+                              : 'bg-amber-500/15 text-amber-400 border border-amber-500/10'
+                          }`}>
+                            {isReplied ? 'Cevaplandı' : 'Cevap Bekliyor'}
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center justify-between text-[10px] text-slate-450 border-t border-slate-800/40 pt-2 w-full">
+                          <span>Ağırlık: <strong className="text-slate-300">{ci.weightKg} kg</strong></span>
+                          <span>Uyum: <strong className="text-slate-300">%{ci.workoutCompliance} / %{ci.nutritionCompliance}</strong></span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Right Column: Active Check-in details & Reply Form */}
+              <div className="lg:col-span-8 space-y-4">
+                {selectedCheckIn ? (
+                  <div className="bg-slate-900 border border-slate-850 rounded-2xl p-5 space-y-6 shadow-xl">
+                    {/* Header Details */}
+                    <div className="flex items-center justify-between border-b border-slate-800/60 pb-3 flex-wrap gap-2">
+                      <div>
+                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block font-bold">Seçili Rapor Dönemi</span>
+                        <h4 className="text-sm font-black text-white mt-0.5">
+                          {selectedCheckIn.weekStartDate} ile {selectedCheckIn.weekEndDate} Arası
+                        </h4>
+                      </div>
+                      <span className="text-[10px] text-slate-500 font-mono font-medium">
+                        Gönderim: {new Date(selectedCheckIn.createdAt).toLocaleString('tr-TR')}
+                      </span>
+                    </div>
+
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className="bg-slate-950 p-3 rounded-xl border border-slate-850/60 text-center">
+                        <span className="text-[9px] text-slate-500 block font-bold uppercase tracking-wider">Mevcut Ağırlık</span>
+                        <span className="text-base font-black text-slate-200 block mt-1">{selectedCheckIn.weightKg || '—'} <span className="text-xs font-normal text-slate-500">kg</span></span>
+                      </div>
+                      <div className="bg-slate-950 p-3 rounded-xl border border-slate-850/60 text-center">
+                        <span className="text-[9px] text-slate-500 block font-bold uppercase tracking-wider">Günlük Uyku (Ort.)</span>
+                        <span className="text-base font-black text-slate-200 block mt-1">{selectedCheckIn.sleepHours || '—'} <span className="text-xs font-normal text-slate-500">saat</span></span>
+                      </div>
+                      <div className="bg-slate-950 p-3 rounded-xl border border-slate-850/60 text-center">
+                        <span className="text-[9px] text-slate-500 block font-bold uppercase tracking-wider">Günlük Su (Ort.)</span>
+                        <span className="text-base font-black text-slate-200 block mt-1">{selectedCheckIn.waterIntakeLiters || '—'} <span className="text-xs font-normal text-slate-500">L</span></span>
+                      </div>
+                      <div className="bg-slate-950 p-3 rounded-xl border border-slate-850/60 text-center">
+                        <span className="text-[9px] text-slate-500 block font-bold uppercase tracking-wider">Ruh Hali / Mood</span>
+                        <span className="text-xs font-bold text-emerald-400 block mt-2 capitalize truncate" title={selectedCheckIn.mood}>
+                          {selectedCheckIn.mood || 'Belirtilmemiş'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Compliance & Wellness Metrics with dynamic progress bars */}
+                    <div className="bg-slate-950/45 border border-slate-850/50 p-4 rounded-xl space-y-4">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block pb-1 border-b border-slate-800/40">
+                        Haftalık Uyum ve Vücut Skorları
+                      </span>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                        {/* Antrenman Uyumu */}
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between items-baseline text-xs">
+                            <span className="text-slate-450 font-bold">Antrenman Programına Uyum</span>
+                            <span className="font-mono font-black text-emerald-400">%{selectedCheckIn.workoutCompliance}</span>
+                          </div>
+                          <div className="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden">
+                            <div className="bg-emerald-400 h-1.5 rounded-full" style={{ width: `${selectedCheckIn.workoutCompliance}%` }}></div>
+                          </div>
+                        </div>
+
+                        {/* Beslenme Uyumu */}
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between items-baseline text-xs">
+                            <span className="text-slate-450 font-bold">Beslenme / Makro Planına Uyum</span>
+                            <span className="font-mono font-black text-emerald-400">%{selectedCheckIn.nutritionCompliance}</span>
+                          </div>
+                          <div className="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden">
+                            <div className="bg-emerald-400 h-1.5 rounded-full" style={{ width: `${selectedCheckIn.nutritionCompliance}%` }}></div>
+                          </div>
+                        </div>
+
+                        {/* Enerji Seviyesi */}
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between items-baseline text-xs">
+                            <span className="text-slate-450 font-bold">Enerji Seviyesi</span>
+                            <span className="font-mono font-black text-amber-400">{selectedCheckIn.energyLevel} / 10</span>
+                          </div>
+                          <div className="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden">
+                            <div className="bg-amber-400 h-1.5 rounded-full" style={{ width: `${selectedCheckIn.energyLevel * 10}%` }}></div>
+                          </div>
+                        </div>
+
+                        {/* Stres Seviyesi */}
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between items-baseline text-xs">
+                            <span className="text-slate-450 font-bold">Stres Seviyesi</span>
+                            <span className="font-mono font-black text-amber-400">{selectedCheckIn.stressLevel} / 10</span>
+                          </div>
+                          <div className="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden">
+                            <div className="bg-amber-400 h-1.5 rounded-full" style={{ width: `${selectedCheckIn.stressLevel * 10}%` }}></div>
+                          </div>
+                        </div>
+
+                        {/* Açlık Seviyesi */}
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between items-baseline text-xs">
+                            <span className="text-slate-450 font-bold">Açlık Durumu</span>
+                            <span className="font-mono font-black text-amber-400">{selectedCheckIn.hungerLevel} / 10</span>
+                          </div>
+                          <div className="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden">
+                            <div className="bg-amber-400 h-1.5 rounded-full" style={{ width: `${selectedCheckIn.hungerLevel * 10}%` }}></div>
+                          </div>
+                        </div>
+
+                        {/* Kas Ağrısı Seviyesi */}
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between items-baseline text-xs">
+                            <span className="text-slate-450 font-bold">Kas Ağrısı / Soreness</span>
+                            <span className="font-mono font-black text-rose-450">{selectedCheckIn.sorenessLevel} / 10</span>
+                          </div>
+                          <div className="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden">
+                            <div className="bg-rose-400 h-1.5 rounded-full" style={{ width: `${selectedCheckIn.sorenessLevel * 10}%` }}></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Notes, Pain, Text Blocks */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Athlete Note */}
+                      <div className="p-3.5 bg-slate-950 rounded-xl border border-slate-850 space-y-1.5">
+                        <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider block">Sporcunun Haftalık Notu</span>
+                        <p className="text-xs text-slate-350 italic whitespace-pre-wrap leading-relaxed">
+                          {selectedCheckIn.note ? `"${selectedCheckIn.note}"` : 'Sporcu ekstra bir not yazmamış.'}
+                        </p>
+                      </div>
+
+                      {/* Pain & Injury Detail */}
+                      <div className="p-3.5 bg-slate-950 rounded-xl border border-slate-850 space-y-1.5">
+                        <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider block">Sakatlık veya Ağrı Durumu</span>
+                        {selectedCheckIn.painOrInjury ? (
+                          <div className="flex items-start gap-1.5 text-rose-400">
+                            <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                            <p className="text-xs font-semibold leading-relaxed">
+                              {selectedCheckIn.painOrInjury}
+                            </p>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-slate-500 italic">
+                            Herhangi bir sakatlık veya ağrı belirtilmemiş. ✓
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Coach Reply Form */}
+                    <div className="border-t border-slate-800/60 pt-5 space-y-4">
+                      <div>
+                        <h5 className="text-xs font-black text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                          <MessageSquare className="w-4 h-4 text-emerald-400" /> Koç Değerlendirmesi ve Geri Bildirimi
+                        </h5>
+                        <p className="text-[10px] text-slate-500 mt-0.5">Sporcunuza bu check-in dönemi için tavsiye, motivasyon veya program güncellemeleri hakkında yazın.</p>
+                      </div>
+
+                      {selectedCheckIn.coachReply && (
+                        <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-xl space-y-2">
+                          <div className="flex justify-between items-center text-[10px] text-slate-500">
+                            <span className="font-bold text-emerald-400 uppercase tracking-wider">KAYDEDİLEN CEVABINIZ</span>
+                            {selectedCheckIn.coachReplyAt && (
+                              <span>Tarih: {new Date(selectedCheckIn.coachReplyAt).toLocaleString('tr-TR')}</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-300 whitespace-pre-wrap italic">"{selectedCheckIn.coachReply}"</p>
+                        </div>
+                      )}
+
+                      <form onSubmit={handleCoachReply} className="space-y-3">
+                        <textarea
+                          rows={3}
+                          required
+                          value={coachReplyText}
+                          onChange={(e) => setCoachReplyText(e.target.value)}
+                          placeholder="Harika bir hafta geçirmişsin! Kilodaki artış gayet makul. Bu hafta antrenman ağırlıklarını biraz daha zorlayabiliriz..."
+                          className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3.5 text-xs text-slate-200 placeholder-slate-650 focus:outline-none focus:border-emerald-500"
+                        />
+
+                        <div className="flex justify-end">
+                          <button
+                            type="submit"
+                            disabled={replySubmitting}
+                            className="px-6 py-2 bg-emerald-400 hover:bg-emerald-350 text-slate-950 font-extrabold text-xs rounded-xl transition cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5 shadow-lg shadow-emerald-500/5"
+                          >
+                            {replySubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                            {selectedCheckIn.coachReply ? 'Geri Bildirimi Güncelle' : 'Geri Bildirimi Kaydet ve İlet'}
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+
+                  </div>
+                ) : (
+                  <div className="h-96 bg-slate-900 border border-slate-850 rounded-2xl flex items-center justify-center text-xs text-slate-500 italic">
+                    Detayları görmek için sol listeden bir check-in dönemi seçin.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
