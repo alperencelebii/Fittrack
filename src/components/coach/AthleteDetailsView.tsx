@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { databaseService, normalizeExerciseSets } from '../../services/databaseService';
+import { databaseService, normalizeExerciseSets, calculateWorkoutVolume, calculateWorkoutTotalSets } from '../../services/databaseService';
 import { EXERCISE_LIBRARY } from '../../data/exerciseLibrary';
 import { 
   Workout, 
@@ -34,6 +34,9 @@ import {
 } from 'recharts';
 import {
   ChevronLeft,
+  ChevronDown,
+  ChevronUp,
+  Flame,
   Sparkles,
   Scale,
   Dumbbell,
@@ -97,6 +100,89 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
   // UI Controllers
   const [activeTab, setActiveTab] = useState<'summary' | 'workouts' | 'nutrition' | 'measurements' | 'training_status' | 'checkins'>('summary');
   const [loading, setLoading] = useState(true);
+  const [expandedWorkoutIds, setExpandedWorkoutIds] = useState<Record<string, boolean>>({});
+
+  // Helper to extract detailed sets from various legacy or custom database structures
+  const getCustomExerciseSets = (ex: any): any[] => {
+    if (!ex) return [];
+    
+    // Find sets array from different possible names
+    const setsArray = ex.sets || ex.performedSets || ex.setEntries || ex.workoutSetEntries || ex.exerciseSets;
+    
+    if (Array.isArray(setsArray)) {
+      return setsArray.map((s: any, idx: number) => {
+        // Resolve reps/rep/repetitions
+        const repsVal = s.reps !== undefined ? s.reps : (s.rep !== undefined ? s.rep : (s.repetitions !== undefined ? s.repetitions : 0));
+        
+        // Resolve weight/weightKg/kg/load
+        const weightVal = s.weight !== undefined ? s.weight : (s.weightKg !== undefined ? s.weightKg : (s.kg !== undefined ? s.kg : (s.load !== undefined ? s.load : 0)));
+        
+        // Resolve restSeconds/rest/restTime
+        const restVal = s.restSeconds !== undefined ? s.restSeconds : (s.rest !== undefined ? s.rest : (s.restTime !== undefined ? s.restTime : 0));
+        
+        // Resolve rpe/intensity
+        const rpeVal = s.rpe !== undefined ? s.rpe : (s.intensity !== undefined ? s.intensity : undefined);
+        
+        // Resolve note/notes
+        const noteVal = s.note !== undefined ? s.note : (s.notes !== undefined ? s.notes : '');
+        
+        return {
+          id: s.id || Math.random().toString(36).substring(2, 9),
+          setNumber: Number(s.setNumber || idx + 1),
+          reps: Number(repsVal || 0),
+          weight: Number(weightVal || 0),
+          restSeconds: Number(restVal || 0),
+          rpe: rpeVal !== undefined ? String(rpeVal) : undefined,
+          notes: String(noteVal || '')
+        };
+      });
+    }
+    
+    // If setsArray is not an array, maybe it's legacy single-set values or sets count
+    const setsCountVal = Number(ex.sets || ex.performedSets || ex.setEntries || ex.workoutSetEntries || ex.exerciseSets || 0);
+    const repsVal = Number(ex.reps || ex.rep || ex.repetitions || 0);
+    const weightVal = Number(ex.weight || ex.weightKg || ex.kg || ex.load || 0);
+    const restVal = Number(ex.restSeconds || ex.rest || ex.restTime || 60);
+    const rpeVal = ex.rpe || ex.intensity || undefined;
+    const noteVal = ex.note || ex.notes || '';
+    
+    const result: any[] = [];
+    for (let i = 1; i <= setsCountVal; i++) {
+      result.push({
+        id: Math.random().toString(36).substring(2, 9),
+        setNumber: i,
+        reps: repsVal,
+        weight: weightVal,
+        restSeconds: restVal,
+        rpe: rpeVal !== undefined ? String(rpeVal) : undefined,
+        notes: String(noteVal)
+      });
+    }
+    
+    return result;
+  };
+
+  const getWorkoutTotalSets = (w: any): number => {
+    if (!w || !Array.isArray(w.exercises)) return 0;
+    let total = 0;
+    for (const ex of w.exercises) {
+      const sets = getCustomExerciseSets(ex);
+      total += sets.length;
+    }
+    return total;
+  };
+
+  const getWorkoutVolume = (w: any): number => {
+    if (!w || !Array.isArray(w.exercises)) return 0;
+    let total = 0;
+    for (const ex of w.exercises) {
+      const sets = getCustomExerciseSets(ex);
+      for (const s of sets) {
+        total += (s.weight || 0) * (s.reps || 0);
+      }
+    }
+    return total;
+  };
 
   // Athlete Weekly Check-ins State
   const [weeklyCheckIns, setWeeklyCheckIns] = useState<any[]>([]);
@@ -1424,55 +1510,138 @@ export default function AthleteDetailsView({ athleteId, onBack, onShowToast }: A
             </div>
           ) : (
             <div className="space-y-3">
-              {workouts.map(w => (
-                <div key={w.id} className="p-4 bg-slate-900 border border-slate-850 rounded-xl space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 font-extrabold rounded text-[9px] uppercase tracking-wider">
-                          {w.type}
-                        </span>
-                        <span className="text-[10px] text-slate-500 font-bold">{w.date}</span>
+              {workouts.map(w => {
+                const isExpanded = !!expandedWorkoutIds[w.id];
+                const totalSets = getWorkoutTotalSets(w);
+                const totalVolume = getWorkoutVolume(w);
+                
+                let diffColor = 'bg-slate-800 text-slate-300';
+                if (w.difficulty === 'Kolay') diffColor = 'bg-emerald-500/10 text-emerald-400';
+                else if (w.difficulty === 'Orta') diffColor = 'bg-blue-500/10 text-blue-400';
+                else if (w.difficulty === 'Zor') diffColor = 'bg-rose-500/10 text-rose-400';
+
+                return (
+                  <div 
+                    key={w.id} 
+                    className="bg-slate-900 hover:bg-slate-850/40 border border-slate-800 rounded-xl shadow-md transition overflow-hidden"
+                  >
+                    {/* Header info bar of card */}
+                    <div 
+                      onClick={() => setExpandedWorkoutIds(prev => ({ ...prev, [w.id]: !prev[w.id] }))}
+                      className="p-4 sm:p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 cursor-pointer select-none"
+                    >
+                      <div className="space-y-1.5 flex-1 w-full">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[10px] font-black uppercase tracking-wider bg-slate-950 border border-slate-800 text-emerald-400 py-0.5 px-2.5 rounded-full">
+                            {w.type || 'Antrenman'}
+                          </span>
+                          {w.difficulty && (
+                            <span className={`text-[10px] font-black uppercase tracking-wider py-0.5 px-2.5 rounded-full ${diffColor}`}>
+                              {w.difficulty}
+                            </span>
+                          )}
+                        </div>
+                        
+                        <h4 className="text-base font-extrabold text-white">{w.name}</h4>
+
+                        {/* Integrated aggregated stats */}
+                        <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1 text-[11px] text-slate-400 font-medium">
+                          <span>Egzersiz: <strong className="text-slate-200">{w.exercises ? w.exercises.length : 0}</strong></span>
+                          <span className="text-slate-700">•</span>
+                          <span>Set: <strong className="text-emerald-400">{totalSets}</strong></span>
+                          <span className="text-slate-700">•</span>
+                          <span>Volume: <strong className="text-blue-400">{totalVolume.toLocaleString('tr-TR')} kg</strong></span>
+                        </div>
                       </div>
-                      <h4 className="text-xs font-bold text-white mt-1">{w.name}</h4>
+
+                      <div className="flex items-center gap-4 text-xs font-semibold text-slate-300 w-full sm:w-auto justify-between sm:justify-end border-t sm:border-t-0 border-slate-850 pt-2.5 sm:pt-0">
+                        <div className="flex items-center gap-3 sm:gap-4">
+                          <span className="flex items-center gap-1.5 shrink-0">
+                            <Calendar className="w-4 h-4 text-slate-500 shrink-0" />
+                            {w.date}
+                          </span>
+                          <span className="flex items-center gap-1.5 shrink-0">
+                            <Clock className="w-4 h-4 text-slate-500 shrink-0" />
+                            {w.duration} dk
+                          </span>
+                          <span className="flex items-center gap-1.5 shrink-0">
+                            <Flame className="w-4 h-4 text-orange-500 shrink-0" />
+                            {w.caloriesBurned} kcal
+                          </span>
+                        </div>
+
+                        {/* Chevron and button */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-[11px] font-extrabold text-emerald-400 hover:text-emerald-300 transition shrink-0 hidden sm:block">
+                            {isExpanded ? 'Detayları Gizle' : 'Detayları Gör'}
+                          </span>
+                          <span className="text-slate-500 block">
+                            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                          </span>
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="text-right text-[10px] font-bold text-slate-300">
-                      <span>{w.duration} dk</span>
-                      <span className="text-slate-500 mx-1">•</span>
-                      <span className="text-orange-400">{w.caloriesBurned} kcal</span>
-                    </div>
+                    {w.notes && (
+                      <div className="px-4 pb-3 sm:px-5">
+                        <p className="text-[11px] text-slate-400 bg-slate-950 p-2.5 border border-slate-850 rounded-lg italic">
+                          " {w.notes} "
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Exercises Details section when expanded */}
+                    {isExpanded && (
+                      <div className="border-t border-slate-850 bg-slate-950/40 p-4 sm:p-5 space-y-3.5 transition-all">
+                        <h5 className="text-xs font-bold text-emerald-400 tracking-wider uppercase flex items-center gap-1.5">
+                          <Dumbbell className="w-3.5 h-3.5" /> Egzersiz Detayları ({w.exercises ? w.exercises.length : 0})
+                        </h5>
+                        {!w.exercises || w.exercises.length === 0 ? (
+                          <p className="text-xs text-slate-500 italic">Bu antrenmana henüz egzersiz eklenmemiş.</p>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {w.exercises.map((ex, idx) => {
+                              const sets = getCustomExerciseSets(ex);
+                              return (
+                                <div
+                                  key={ex.id || idx}
+                                  className="bg-slate-900 border border-slate-850 rounded-xl p-3.5 space-y-2.5"
+                                >
+                                  <div className="flex justify-between items-start">
+                                    <p className="text-xs font-extrabold text-slate-200">
+                                      {idx + 1}. {ex.name}
+                                    </p>
+                                    <span className="text-[10px] text-zinc-500 bg-slate-950 px-2 py-0.5 rounded-md border border-slate-800 font-mono">
+                                      {sets.length} Set
+                                    </span>
+                                  </div>
+                                  
+                                  {/* Sets List */}
+                                  <div className="space-y-1.5 pl-1.5">
+                                    {sets.map((s, sIdx) => (
+                                      <div key={s.id || sIdx} className="flex items-center justify-between text-[11px] text-slate-450 font-medium bg-slate-950/50 p-1.5 rounded border border-slate-850/60 font-mono">
+                                        <span className="text-slate-550 font-extrabold">Set #{s.setNumber}</span>
+                                        <div className="flex gap-3">
+                                          <span><strong>{s.reps}</strong> rep</span>
+                                          {s.weight > 0 && <span className="text-emerald-400 font-bold"><strong>{s.weight}</strong> kg</span>}
+                                          {s.restSeconds > 0 && <span className="text-slate-500">⏱️ {s.restSeconds}s</span>}
+                                          {s.rpe && <span className="text-amber-500 font-bold">RPE {s.rpe}</span>}
+                                        </div>
+                                        {s.notes && <span className="text-[10px] text-slate-500 italic truncate max-w-[120px]" title={s.notes}>"{s.notes}"</span>}
+                                      </div>
+                                    ))}
+                                  </div>
+                                  {ex.notes && <p className="text-[10px] text-slate-500 italic pl-1.5">Egzersiz Notu: "{ex.notes}"</p>}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-
-                  {w.notes && (
-                    <p className="text-[11px] text-slate-400 bg-slate-950 p-2 border border-slate-850 rounded-lg italic">
-                      " {w.notes} "
-                    </p>
-                  )}
-
-                  {/* Exercises Details */}
-                  {w.exercises && w.exercises.length > 0 && (
-                    <div className="space-y-1.5 pl-2 border-l-2 border-slate-800">
-                      <span className="text-[9.5px] font-extrabold text-slate-400 uppercase tracking-widest block">Egzersizler:</span>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                        {w.exercises.map((ex, idx) => {
-                          const normalizedSets = normalizeExerciseSets(ex);
-                          const totalSetsCount = normalizedSets.length;
-                          const firstSet = normalizedSets[0] || { reps: 0, weight: 0 };
-                          return (
-                            <div key={ex.id || idx} className="p-1.5 bg-slate-950 rounded border border-slate-850/50">
-                              <span className="font-bold text-slate-200 block">{ex.name}</span>
-                              <span className="text-[10px] text-emerald-400 font-bold">
-                                {totalSetsCount} set {firstSet.reps > 0 ? `x ${firstSet.reps} tekrar` : ''} {firstSet.weight > 0 ? `/ ${firstSet.weight} kg` : ''} {ex.notes && <span className="text-slate-400 font-normal">({ex.notes})</span>}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
